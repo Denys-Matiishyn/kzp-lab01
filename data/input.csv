@@ -1,6 +1,13 @@
-Олександр;101;5;1500.00;Люкс
-Марія;102;2;850.50;Стандарт
-Іван;205;10;1200.00;Напівлюкс
-;301;3;1000.00;Економ
-Петро;-5;4;900.00;Стандарт
-Анна;404;помилка;2000.00;Люкс
+guest;room;nights;nightlyRate;category
+John Doe;101;3;150.00;Standard
+Alice Smith;202;5;250.00;Deluxe
+Bob Johnson;305;1;100.00;Economy
+Dexter Morgan;301;3;1000.00;Suite
+Emma Watson;401;10;500.00;Presidential
+Tom Cruise;404;five;2000.00;Penthouse
+Michael Scott;105;2;120.50;Standard
+Sarah Connor;210;4;200.00;Business
+Tony Stark;500;7;1500.00
+Bruce Wayne;501;7;1500.00;Suite
+Clark Kent;102;2;90.00;Economy
+Diana Prince;205;3;220.00;Deluxe

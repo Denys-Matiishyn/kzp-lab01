@@ -1,96 +1,93 @@
 package ua.lpnu.kzp;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.file.*;
 import java.util.Locale;
 
-public final class Main {
-
-    private Main() {}
-
+public class Main {
     public static void main(String[] args) {
-        List<String> errors = new ArrayList<>();
-        Path inputPath = Path.of("data", "input.csv");
+        String inputFile = "data/input.csv";
+        String outputFile = "out/report.txt";
 
-        // Виправлення 1: просто оголошуємо змінну, не створюючи зайвий об'єкт
-        List<String> lines;
-
-        try {
-            lines = Files.readAllLines(inputPath, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            System.out.println("Помилка читання файлу. Переконайся, що файл data/input.csv існує.");
-            return;
-        }
-
-        int validCount = 0;
+        int totalRecords = 0;
         int totalNights = 0;
         double totalRevenue = 0.0;
         int maxNights = 0;
 
-        for (int index = 0; index < lines.size(); index++) {
-            String[] fields = lines.get(index).split(";", -1);
+        System.out.println("--- Hotel Data Processing ---");
 
-            if (fields.length != 5) {
-                errors.add("Рядок " + (index + 1) + ": очікується 5 полів");
-                continue;
-            }
+        // Виправлення SpotBugs: чітко вказано кодування UTF-8
+        try (BufferedReader br = new BufferedReader(new FileReader(inputFile, StandardCharsets.UTF_8))) {
+            String line;
+            int lineNumber = 0;
+            boolean isFirstLine = true;
 
-            if (fields[0].isBlank() || fields[4].isBlank()) {
-                errors.add("Рядок " + (index + 1) + ": порожнє ім'я гостя або категорія номера");
-                continue;
-            }
+            while ((line = br.readLine()) != null) {
+                lineNumber++;
 
-            try {
-                int room = Integer.parseInt(fields[1].trim());
-                int nights = Integer.parseInt(fields[2].trim());
-                double nightlyRate = Double.parseDouble(fields[3].trim());
+                // Пропускаємо заголовок, якщо він є
+                if (isFirstLine && line.toLowerCase().contains("guest")) {
+                    isFirstLine = false;
+                    continue;
+                }
+                if (line.trim().isEmpty()) continue;
 
-                if (room <= 0 || nights <= 0 || nightlyRate < 0) {
-                    errors.add("Рядок " + (index + 1) + ": неприпустимі (від'ємні або нульові) числові значення");
+                String[] parts = line.split(";");
+                if (parts.length != 5) {
+                    System.out.println("Row " + lineNumber + ": Invalid format (expected 5 columns) -> " + line);
                     continue;
                 }
 
-                validCount++;
-                totalNights += nights;
-                totalRevenue += (nights * nightlyRate);
-                maxNights = Math.max(maxNights, nights);
+                try {
+                    String guest = parts[0].trim();
+                    int room = Integer.parseInt(parts[1].trim());
+                    int nights = Integer.parseInt(parts[2].trim());
+                    double nightlyRate = Double.parseDouble(parts[3].trim());
+                    String category = parts[4].trim();
 
-            } catch (NumberFormatException e) {
-                errors.add("Рядок " + (index + 1) + ": помилка формату числа");
+                    if (guest.isEmpty()) {
+                        System.out.println("Row " + lineNumber + ": Guest name is missing -> " + line);
+                        continue;
+                    }
+
+                    totalRecords++;
+                    totalNights += nights;
+                    totalRevenue += (nights * nightlyRate);
+                    if (nights > maxNights) {
+                        maxNights = nights;
+                    }
+
+                } catch (NumberFormatException e) {
+                    System.out.println("Row " + lineNumber + ": Number parsing error (check ints/doubles) -> " + line);
+                }
             }
-        }
-
-        StringBuilder report = new StringBuilder();
-        report.append(String.format(Locale.ROOT, "Коректних записів: %d%n", validCount));
-        report.append(String.format(Locale.ROOT, "Сумарна кількість ночей: %d%n", totalNights));
-        report.append(String.format(Locale.ROOT, "Загальний виторг: %.2f%n", totalRevenue));
-        report.append(String.format(Locale.ROOT, "Найдовше проживання (ночей): %d%n", maxNights));
-
-        if (!errors.isEmpty()) {
-            report.append(String.format(Locale.ROOT, "%nПомилок знайдено: %d%n", errors.size()));
-            for (String error : errors) {
-                report.append(error).append(System.lineSeparator());
-            }
-        }
-
-        String finalReport = report.toString();
-        System.out.print(finalReport);
-
-        Path outputPath = Path.of("out", "report.txt");
-        try {
-            // Виправлення 2: перевіряємо parent на null перед створенням папок
-            Path parent = outputPath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            Files.writeString(outputPath, finalReport, StandardCharsets.UTF_8);
-            System.out.println("\nЗвіт успішно збережено у файл: " + outputPath);
         } catch (IOException e) {
-            System.out.println("\nПомилка під час запису файлу звіту.");
+            System.out.println("Error reading input file: " + e.getMessage());
+            return;
+        }
+
+        // Вивід результатів у консоль
+        System.out.println("\n--- Final Results ---");
+        System.out.println("Total valid records: " + totalRecords);
+        System.out.println("Total nights stayed: " + totalNights);
+        System.out.println("Total revenue: $" + String.format(Locale.US, "%.2f", totalRevenue));
+        System.out.println("Maximum nights by a single guest: " + maxNights);
+
+        // Збереження результатів у файл
+        try {
+            Files.createDirectories(Paths.get("out"));
+            // Виправлення SpotBugs: чітко вказано кодування UTF-8
+            try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFile, StandardCharsets.UTF_8))) {
+                bw.write("--- Hotel Data Report ---\n");
+                bw.write("Total valid records: " + totalRecords + "\n");
+                bw.write("Total nights stayed: " + totalNights + "\n");
+                bw.write("Total revenue: $" + String.format(Locale.US, "%.2f", totalRevenue) + "\n");
+                bw.write("Maximum nights by a single guest: " + maxNights + "\n");
+            }
+            System.out.println("\nReport successfully saved to: " + outputFile);
+        } catch (IOException e) {
+            System.out.println("Error writing to output file: " + e.getMessage());
         }
     }
 }
