@@ -8,7 +8,12 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 1. Матриця операційних систем
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout repository
@@ -21,8 +26,19 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      # На Windows права доступу працюють інакше, тому ігноруємо цей крок для неї
       - name: Grant execute permission for mvnw
+        if: runner.os != 'Windows'
         run: chmod +x mvnw
 
+      # Запускаємо збірку. shell: bash гарантує, що ./mvnw спрацює на всіх трьох ОС
       - name: Build and Verify with Maven
+        shell: bash
         run: ./mvnw clean verify
+
+      # 2. Збереження артефакту (виконуваного JAR-файлу)
+      - name: Upload Executable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab01-app-${{ matrix.os }}
+          path: target/*-shaded.jar
