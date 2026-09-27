@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="ua.lpnu.kzp.MainTest" time="0.051" tests="1" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="ua.lpnu.kzp.MainTest" time="0.112" tests="9" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.cpu.isalist" value="amd64"/>
@@ -12,10 +12,10 @@
     <property name="user.timezone" value="Europe/Kiev"/>
     <property name="os.name" value="Windows 11"/>
     <property name="java.vm.specification.version" value="21"/>
-    <property name="user.country" value="UA"/>
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
+    <property name="user.country" value="UA"/>
     <property name="sun.boot.library.path" value="C:\Users\bbom3\.jdks\ms-21.0.12.1\bin"/>
-    <property name="sun.java.command" value="C:\Users\bbom3\AppData\Local\Temp\surefire10449536919016361742\surefirebooter-20260921022240719_3.jar C:\Users\bbom3\AppData\Local\Temp\surefire10449536919016361742 2026-09-21T02-22-40_592-jvmRun1 surefire-20260921022240719_1tmp surefire_0-20260921022240719_2tmp"/>
+    <property name="sun.java.command" value="C:\Users\bbom3\AppData\Local\Temp\surefire11287851123800504894\surefirebooter-20260927215918526_3.jar C:\Users\bbom3\AppData\Local\Temp\surefire11287851123800504894 2026-09-27T21-59-18_405-jvmRun1 surefire-20260927215918526_1tmp surefire_0-20260927215918526_2tmp"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="C:\Users\bbom3\IdeaProjects\lab\target\test-classes;C:\Users\bbom3\IdeaProjects\lab\target\classes;C:\Users\bbom3\.m2\repository\org\junit\jupiter\junit-jupiter\5.12.2\junit-jupiter-5.12.2.jar;C:\Users\bbom3\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.12.2\junit-jupiter-api-5.12.2.jar;C:\Users\bbom3\.m2\repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;C:\Users\bbom3\.m2\repository\org\junit\platform\junit-platform-commons\1.12.2\junit-platform-commons-1.12.2.jar;C:\Users\bbom3\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\bbom3\.m2\repository\org\junit\jupiter\junit-jupiter-params\5.12.2\junit-jupiter-params-5.12.2.jar;C:\Users\bbom3\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.12.2\junit-jupiter-engine-5.12.2.jar;C:\Users\bbom3\.m2\repository\org\junit\platform\junit-platform-engine\1.12.2\junit-platform-engine-1.12.2.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
@@ -26,12 +26,11 @@
     <property name="java.home" value="C:\Users\bbom3\.jdks\ms-21.0.12.1"/>
     <property name="file.separator" value="\"/>
     <property name="basedir" value="C:\Users\bbom3\IdeaProjects\lab"/>
-    <property name="style.color" value="always"/>
     <property name="java.vm.compressedOopsMode" value="Zero based"/>
     <property name="line.separator" value="&#10;"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
-    <property name="surefire.real.class.path" value="C:\Users\bbom3\AppData\Local\Temp\surefire10449536919016361742\surefirebooter-20260921022240719_3.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\bbom3\AppData\Local\Temp\surefire11287851123800504894\surefirebooter-20260927215918526_3.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="21.0.12.1+1-LTS"/>
@@ -43,26 +42,30 @@
     <property name="file.encoding" value="UTF-8"/>
     <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
     <property name="java.vendor.version" value="Microsoft-14941484"/>
-    <property name="maven.ext.class.path" value="C:\Program Files\JetBrains\IntelliJ IDEA 2026.2.3\plugins\maven-plugin\lib\intellij.maven.rt\maven-event-listener.jar"/>
     <property name="localRepository" value="C:\Users\bbom3\.m2\repository"/>
     <property name="java.vendor.url.bug" value="https://github.com/microsoft/openjdk/issues"/>
     <property name="java.io.tmpdir" value="C:\Users\bbom3\AppData\Local\Temp\"/>
-    <property name="idea.version" value="2026.2.3"/>
     <property name="java.version" value="21.0.12.1"/>
     <property name="user.dir" value="C:\Users\bbom3\IdeaProjects\lab"/>
     <property name="os.arch" value="amd64"/>
-    <property name="jansi.passthrough" value="true"/>
     <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
     <property name="sun.os.patch.level" value=""/>
     <property name="native.encoding" value="Cp1251"/>
-    <property name="java.library.path" value="C:\Users\bbom3\.jdks\ms-21.0.12.1\bin;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\Git\cmd;C:\Users\bbom3\AppData\Local\Programs\Python\Launcher\;C:\Users\bbom3\AppData\Local\Microsoft\WindowsApps;E:\PyCharm 2026.2\bin;C:\Users\bbom3\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.2-full_build\bin;E:\WebStorm 2026.2.0.1\bin;C:\Program Files\JetBrains\IntelliJ IDEA 2026.2.3\bin;."/>
+    <property name="java.library.path" value="C:\Users\bbom3\.jdks\ms-21.0.12.1\bin;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;C:\Users\bbom3\.jdks\ms-21.0.12.1\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\Git\cmd;C:\Users\bbom3\AppData\Local\Programs\Python\Launcher\;C:\Users\bbom3\AppData\Local\Microsoft\WindowsApps;E:\PyCharm 2026.2\bin;C:\Users\bbom3\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.2-full_build\bin;E:\WebStorm 2026.2.0.1\bin;C:\Program Files\JetBrains\IntelliJ IDEA 2026.2.3\bin;."/>
     <property name="java.vm.info" value="mixed mode, sharing"/>
     <property name="stderr.encoding" value="Cp1251"/>
     <property name="java.vendor" value="Microsoft"/>
     <property name="java.vm.version" value="21.0.12.1+1-LTS"/>
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
-    <property name="maven.repo.local" value="C:\Users\bbom3\.m2\repository"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="sampleCalculationIsCorrect" classname="ua.lpnu.kzp.MainTest" time="0.025"/>
+  <testcase name="testVersionArgument" classname="ua.lpnu.kzp.MainTest" time="0.023"/>
+  <testcase name="testNonNumericValue" classname="ua.lpnu.kzp.MainTest" time="0.052"/>
+  <testcase name="testHelpArgument" classname="ua.lpnu.kzp.MainTest" time="0.001"/>
+  <testcase name="testEmptyFile" classname="ua.lpnu.kzp.MainTest" time="0.002"/>
+  <testcase name="testUtf8UkrainianText" classname="ua.lpnu.kzp.MainTest" time="0.003"/>
+  <testcase name="testMissingGuestName" classname="ua.lpnu.kzp.MainTest" time="0.003"/>
+  <testcase name="testInvalidColumnCount" classname="ua.lpnu.kzp.MainTest" time="0.003"/>
+  <testcase name="testValidRecord" classname="ua.lpnu.kzp.MainTest" time="0.002"/>
+  <testcase name="testMultipleRecordsMaxNights" classname="ua.lpnu.kzp.MainTest" time="0.001"/>
 </testsuite>

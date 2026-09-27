@@ -5,10 +5,46 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Locale;
 
+/**
+ * Main class for Hotel Data Processing.
+ * Reads customer records from a CSV file, validates them,
+ * and generates a summary report including total revenue and maximum nights.
+ */
 public class Main {
     public static void main(String[] args) {
         String inputFile = "data/input.csv";
         String outputFile = "out/report.txt";
+
+        // Обробка аргументів командного рядка
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--help":
+                    System.out.println("Hotel Data Processing Tool");
+                    System.out.println("Usage: java -jar lab01.jar [options]");
+                    System.out.println("Options:");
+                    System.out.println("  --help            Show this help message");
+                    System.out.println("  --version         Show version information");
+                    System.out.println("  --input FILE      Specify input CSV file (default: data/input.csv)");
+                    System.out.println("  --output FILE     Specify output text file (default: out/report.txt)");
+                    return;
+                case "--version":
+                    System.out.println("1.0.0");
+                    return;
+                case "--input":
+                    if (i + 1 < args.length) {
+                        inputFile = args[++i];
+                    }
+                    break;
+                case "--output":
+                    if (i + 1 < args.length) {
+                        outputFile = args[++i];
+                    }
+                    break;
+                default:
+                    // Виправлення SpotBugs: обов'язковий блок default
+                    break;
+            }
+        }
 
         int totalRecords = 0;
         int totalNights = 0;
