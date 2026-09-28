@@ -11,6 +11,14 @@ import java.util.Locale;
  * and generates a summary report including total revenue and maximum nights.
  */
 public class Main {
+
+    /**
+     * Точка входу в програму.
+     * Обробляє аргументи командного рядка, зчитує вхідні дані,
+     * перевіряє їх на коректність та виводить статистику.
+     *
+     * @param args масив параметрів командного рядка
+     */
     public static void main(String[] args) {
         String inputFile = "data/input.csv";
         String outputFile = "out/report.txt";
@@ -41,7 +49,6 @@ public class Main {
                     }
                     break;
                 default:
-                    // Виправлення SpotBugs: обов'язковий блок default
                     break;
             }
         }
@@ -53,7 +60,6 @@ public class Main {
 
         System.out.println("--- Hotel Data Processing ---");
 
-        // Виправлення SpotBugs: чітко вказано кодування UTF-8
         try (BufferedReader br = new BufferedReader(new FileReader(inputFile, StandardCharsets.UTF_8))) {
             String line;
             int lineNumber = 0;
@@ -62,31 +68,66 @@ public class Main {
             while ((line = br.readLine()) != null) {
                 lineNumber++;
 
-                // Пропускаємо заголовок, якщо він є
+                // Пропускаємо заголовок (перевіряємо на наявність слова 'guest')
                 if (isFirstLine && line.toLowerCase().contains("guest")) {
                     isFirstLine = false;
                     continue;
                 }
-                if (line.trim().isEmpty()) continue;
 
-                String[] parts = line.split(";");
+                // Виправлення: Порожній рядок тепер відкидається з виведенням причини
+                if (line.trim().isEmpty()) {
+                    System.out.println("Row " + lineNumber + ": Порожній рядок");
+                    continue;
+                }
+
+                String[] parts = line.split(";",-1);
                 if (parts.length != 5) {
                     System.out.println("Row " + lineNumber + ": Invalid format (expected 5 columns) -> " + line);
                     continue;
                 }
 
                 try {
-                    String guest = parts[0].trim();
-                    int room = Integer.parseInt(parts[1].trim());
-                    int nights = Integer.parseInt(parts[2].trim());
-                    double nightlyRate = Double.parseDouble(parts[3].trim());
+                    // Виправлення: Правильний порядок полів (room;guest;nights;nightlyRate;category)
+                    String roomStr = parts[0].trim();
+                    String guest = parts[1].trim();
+                    String nightsStr = parts[2].trim();
+                    String rateStr = parts[3].trim();
                     String category = parts[4].trim();
 
+                    // Перевірки порожніх текстових полів
+                    if (roomStr.isEmpty()) {
+                        System.out.println("Row " + lineNumber + ": Room number is missing -> " + line);
+                        continue;
+                    }
                     if (guest.isEmpty()) {
                         System.out.println("Row " + lineNumber + ": Guest name is missing -> " + line);
                         continue;
                     }
+                    if (category.isEmpty()) {
+                        System.out.println("Row " + lineNumber + ": Category is missing -> " + line);
+                        continue;
+                    }
 
+                    // Парсинг числових полів
+                    int room = Integer.parseInt(roomStr);
+                    int nights = Integer.parseInt(nightsStr);
+                    double nightlyRate = Double.parseDouble(rateStr);
+
+                    // Виправлення: Жорстка валідація чисел (від'ємні, NaN, Infinity) ДО оновлення статистики
+                    if (room <= 0) {
+                        System.out.println("Row " + lineNumber + ": Invalid room number (must be > 0) -> " + line);
+                        continue;
+                    }
+                    if (nights <= 0) {
+                        System.out.println("Row " + lineNumber + ": Invalid nights count (must be > 0) -> " + line);
+                        continue;
+                    }
+                    if (nightlyRate <= 0.0 || Double.isNaN(nightlyRate) || Double.isInfinite(nightlyRate)) {
+                        System.out.println("Row " + lineNumber + ": Invalid nightly rate (must be a valid positive number) -> " + line);
+                        continue;
+                    }
+
+                    // Якщо всі перевірки пройдено, оновлюємо статистику
                     totalRecords++;
                     totalNights += nights;
                     totalRevenue += (nights * nightlyRate);
@@ -103,17 +144,14 @@ public class Main {
             return;
         }
 
-        // Вивід результатів у консоль
         System.out.println("\n--- Final Results ---");
         System.out.println("Total valid records: " + totalRecords);
         System.out.println("Total nights stayed: " + totalNights);
         System.out.println("Total revenue: $" + String.format(Locale.US, "%.2f", totalRevenue));
         System.out.println("Maximum nights by a single guest: " + maxNights);
 
-        // Збереження результатів у файл
         try {
             Files.createDirectories(Paths.get("out"));
-            // Виправлення SpotBugs: чітко вказано кодування UTF-8
             try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFile, StandardCharsets.UTF_8))) {
                 bw.write("--- Hotel Data Report ---\n");
                 bw.write("Total valid records: " + totalRecords + "\n");
