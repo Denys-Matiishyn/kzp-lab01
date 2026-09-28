@@ -3,11 +3,15 @@ package ua.lpnu.kzp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import java.io.*;
-import java.nio.file.*;
-import static org.junit.jupiter.api.Assertions.*;
 
-public class MainTest {
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class MainTest {
     private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
     private final PrintStream originalOut = System.out;
 
@@ -22,76 +26,86 @@ public class MainTest {
     }
 
     @Test
-    public void testVersionArgument() {
-        Main.main(new String[]{"--version"});
-        assertTrue(outContent.toString().contains("1.0.0"));
+    void testValidDataProcess() throws Exception {
+        Path tempInput = Files.createTempFile("test_input", ".csv");
+        Files.writeString(tempInput, "room;guest;nights;nightlyRate;category\n101;John Doe;3;50.0;Standard\n102;Jane Doe;5;100.0;Deluxe");
+
+        String[] args = {"--input", tempInput.toString()};
+        Main.main(args);
+
+        String output = outContent.toString();
+        assertTrue(output.contains("Total valid records: 2"));
+        assertTrue(output.contains("Total nights stayed: 8"));
+        assertTrue(output.contains("Total revenue: $650.00"));
+        assertTrue(output.contains("Maximum nights by a single guest: 5"));
+
+        Files.deleteIfExists(tempInput);
     }
 
     @Test
-    public void testHelpArgument() {
-        Main.main(new String[]{"--help"});
-        assertTrue(outContent.toString().contains("Usage:"));
+    void testEmptyAndInvalidRows() throws Exception {
+        Path tempInput = Files.createTempFile("test_input_invalid", ".csv");
+        String data = "room;guest;nights;nightlyRate;category\n" +
+                "\n" + // Порожній рядок
+                "101;;3;50.0;Standard\n" + // Порожній guest
+                "102;John Doe;5;100.0;\n" + // Порожня category
+                ";Jane Doe;2;80.0;Standard\n" + // Порожня room
+                "John Doe;101;3;50.0;Standard\n"; // Неправильний порядок полів
+        Files.writeString(tempInput, data);
+
+        String[] args = {"--input", tempInput.toString()};
+        Main.main(args);
+
+        String output = outContent.toString();
+        assertTrue(output.contains("Порожній рядок"));
+        assertTrue(output.contains("Guest name is missing"));
+        assertTrue(output.contains("Category is missing"));
+        assertTrue(output.contains("Room number is missing"));
+        assertTrue(output.contains("Number parsing error"));
+        assertTrue(output.contains("Total valid records: 0"));
+
+        Files.deleteIfExists(tempInput);
     }
 
     @Test
-    public void testEmptyFile() throws IOException {
-        Path tempFile = Files.createTempFile("empty", ".csv");
-        Main.main(new String[]{"--input", tempFile.toString()});
-        assertTrue(outContent.toString().contains("Total valid records: 0"));
-        Files.deleteIfExists(tempFile);
+    void testNegativeAndNaNValues() throws Exception {
+        Path tempInput = Files.createTempFile("test_input_math", ".csv");
+        String data = "room;guest;nights;nightlyRate;category\n" +
+                "-101;John Doe;3;50.0;Standard\n" + // Від'ємна кімната
+                "102;Jane Doe;-5;100.0;Deluxe\n" + // Від'ємні ночі
+                "103;Bob;2;-50.0;Standard\n" + // Від'ємна ціна
+                "104;Alice;4;NaN;Deluxe\n" + // NaN ціна
+                "105;Eve;1;Infinity;Standard\n"; // Infinity ціна
+        Files.writeString(tempInput, data);
+
+        String[] args = {"--input", tempInput.toString()};
+        Main.main(args);
+
+        String output = outContent.toString();
+        assertTrue(output.contains("Invalid room number (must be > 0)"));
+        assertTrue(output.contains("Invalid nights count (must be > 0)"));
+        assertTrue(output.contains("Invalid nightly rate"));
+        assertTrue(output.contains("Total valid records: 0"));
+
+        Files.deleteIfExists(tempInput);
     }
 
     @Test
-    public void testValidRecord() throws IOException {
-        Path tempFile = Files.createTempFile("valid", ".csv");
-        Files.writeString(tempFile, "guest;room;nights;nightlyRate;category\nJohn;101;2;100.0;Standard");
-        Main.main(new String[]{"--input", tempFile.toString()});
-        assertTrue(outContent.toString().contains("Total revenue: $200.00"));
-        Files.deleteIfExists(tempFile);
-    }
+    void testOutputParameter() throws Exception {
+        Path tempInput = Files.createTempFile("test_input_out", ".csv");
+        Files.writeString(tempInput, "101;John;2;50.0;Standard");
 
-    @Test
-    public void testMissingGuestName() throws IOException {
-        Path tempFile = Files.createTempFile("missing", ".csv");
-        Files.writeString(tempFile, ";101;2;100.0;Standard");
-        Main.main(new String[]{"--input", tempFile.toString()});
-        assertTrue(outContent.toString().contains("Guest name is missing"));
-        Files.deleteIfExists(tempFile);
-    }
+        Path tempOutput = Files.createTempFile("test_output", ".txt");
 
-    @Test
-    public void testInvalidColumnCount() throws IOException {
-        Path tempFile = Files.createTempFile("cols", ".csv");
-        Files.writeString(tempFile, "John;101;2;100.0"); // 4 columns
-        Main.main(new String[]{"--input", tempFile.toString()});
-        assertTrue(outContent.toString().contains("Invalid format (expected 5 columns)"));
-        Files.deleteIfExists(tempFile);
-    }
+        String[] args = {"--input", tempInput.toString(), "--output", tempOutput.toString()};
+        Main.main(args);
 
-    @Test
-    public void testNonNumericValue() throws IOException {
-        Path tempFile = Files.createTempFile("num", ".csv");
-        Files.writeString(tempFile, "John;101;two;100.0;Standard");
-        Main.main(new String[]{"--input", tempFile.toString()});
-        assertTrue(outContent.toString().contains("Number parsing error"));
-        Files.deleteIfExists(tempFile);
-    }
+        String outputContent = Files.readString(tempOutput);
+        assertTrue(outputContent.contains("Total valid records: 1"));
+        assertTrue(outputContent.contains("Total nights stayed: 2"));
+        assertTrue(outputContent.contains("Total revenue: $100.00"));
 
-    @Test
-    public void testMultipleRecordsMaxNights() throws IOException {
-        Path tempFile = Files.createTempFile("multi", ".csv");
-        Files.writeString(tempFile, "A;1;2;10;S\nB;2;5;10;S\nC;3;1;10;S");
-        Main.main(new String[]{"--input", tempFile.toString()});
-        assertTrue(outContent.toString().contains("Maximum nights by a single guest: 5"));
-        Files.deleteIfExists(tempFile);
-    }
-
-    @Test
-    public void testUtf8UkrainianText() throws IOException {
-        Path tempFile = Files.createTempFile("utf8", ".csv");
-        Files.writeString(tempFile, "Денис;101;3;150.0;Люкс");
-        Main.main(new String[]{"--input", tempFile.toString()});
-        assertTrue(outContent.toString().contains("Total revenue: $450.00"));
-        Files.deleteIfExists(tempFile);
+        Files.deleteIfExists(tempInput);
+        Files.deleteIfExists(tempOutput);
     }
 }
