@@ -24,4 +24,4 @@
 ```bash
 java -Dfile.encoding=UTF-8 -jar target/lab01-1.0.0-shaded.jar --input data/input.csv
 ```
-**Автор:** Денис Матіїшин, група КІ-202
+**Автор:** Денис Матіїшин, група КІ-303
