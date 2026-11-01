@@ -1,0 +1,5 @@
+--- Hotel Data Report ---
+Total valid records: 12
+Total nights stayed: 52
+Total revenue: $42681.00
+Maximum nights by a single guest: 10
