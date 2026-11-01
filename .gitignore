@@ -29,3 +29,9 @@ bin/
 ### Mac OS ###
 .DS_Store
 /target/
+
+.idea/
+*.iml
+target/
+out/
+reports/

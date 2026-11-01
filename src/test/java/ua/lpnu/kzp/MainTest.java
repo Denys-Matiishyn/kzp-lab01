@@ -3,6 +3,7 @@ package ua.lpnu.kzp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -107,5 +108,21 @@ class MainTest {
 
         Files.deleteIfExists(tempInput);
         Files.deleteIfExists(tempOutput);
+    }
+
+    @Test
+    void testOutputCreatesMissingParentDirectories(@TempDir Path dir) throws Exception {
+        Path input = dir.resolve("input.csv");
+        Files.writeString(input, "101;John;2;50.0;Standard");
+        // Каталогів a та b не існує: програма має створити їх сама
+        Path output = dir.resolve("a").resolve("b").resolve("report.txt");
+
+        Main.main(new String[] {"--input", input.toString(), "--output", output.toString()});
+
+        assertTrue(Files.exists(output));
+        String content = Files.readString(output);
+        assertTrue(content.contains("Total valid records: 1"));
+        assertTrue(content.contains("Total nights stayed: 2"));
+        assertTrue(content.contains("Total revenue: $100.00"));
     }
 }

@@ -1,29 +1,20 @@
 package ua.lpnu.kzp;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
-/**
- * Main class for Hotel Data Processing.
- * Reads customer records from a CSV file, validates them,
- * and generates a summary report including total revenue and maximum nights.
- */
 public class Main {
 
-    /**
-     * Точка входу в програму.
-     * Обробляє аргументи командного рядка, зчитує вхідні дані,
-     * перевіряє їх на коректність та виводить статистику.
-     *
-     * @param args масив параметрів командного рядка
-     */
     public static void main(String[] args) {
         String inputFile = "data/input.csv";
         String outputFile = "out/report.txt";
 
-        // Обробка аргументів командного рядка
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--help":
@@ -53,90 +44,30 @@ public class Main {
             }
         }
 
-        int totalRecords = 0;
-        int totalNights = 0;
-        double totalRevenue = 0.0;
-        int maxNights = 0;
-
+        List<Booking> bookings = new ArrayList<>();
         System.out.println("--- Hotel Data Processing ---");
 
-        try (BufferedReader br = new BufferedReader(new FileReader(inputFile, StandardCharsets.UTF_8))) {
+        try (BufferedReader br = Files.newBufferedReader(Path.of(inputFile), StandardCharsets.UTF_8)) {
             String line;
             int lineNumber = 0;
-            boolean isFirstLine = true;
 
             while ((line = br.readLine()) != null) {
                 lineNumber++;
 
-                // Пропускаємо заголовок (перевіряємо на наявність слова 'guest')
-                if (isFirstLine && line.toLowerCase().contains("guest")) {
-                    isFirstLine = false;
+                if (lineNumber == 1 && line.toLowerCase(Locale.ROOT).contains("guest")) {
                     continue;
                 }
 
-                // Виправлення: Порожній рядок тепер відкидається з виведенням причини
                 if (line.trim().isEmpty()) {
                     System.out.println("Row " + lineNumber + ": Порожній рядок");
                     continue;
                 }
 
-                String[] parts = line.split(";",-1);
-                if (parts.length != 5) {
-                    System.out.println("Row " + lineNumber + ": Invalid format (expected 5 columns) -> " + line);
-                    continue;
-                }
-
                 try {
-                    // Виправлення: Правильний порядок полів (room;guest;nights;nightlyRate;category)
-                    String roomStr = parts[0].trim();
-                    String guest = parts[1].trim();
-                    String nightsStr = parts[2].trim();
-                    String rateStr = parts[3].trim();
-                    String category = parts[4].trim();
-
-                    // Перевірки порожніх текстових полів
-                    if (roomStr.isEmpty()) {
-                        System.out.println("Row " + lineNumber + ": Room number is missing -> " + line);
-                        continue;
-                    }
-                    if (guest.isEmpty()) {
-                        System.out.println("Row " + lineNumber + ": Guest name is missing -> " + line);
-                        continue;
-                    }
-                    if (category.isEmpty()) {
-                        System.out.println("Row " + lineNumber + ": Category is missing -> " + line);
-                        continue;
-                    }
-
-                    // Парсинг числових полів
-                    int room = Integer.parseInt(roomStr);
-                    int nights = Integer.parseInt(nightsStr);
-                    double nightlyRate = Double.parseDouble(rateStr);
-
-                    // Виправлення: Жорстка валідація чисел (від'ємні, NaN, Infinity) ДО оновлення статистики
-                    if (room <= 0) {
-                        System.out.println("Row " + lineNumber + ": Invalid room number (must be > 0) -> " + line);
-                        continue;
-                    }
-                    if (nights <= 0) {
-                        System.out.println("Row " + lineNumber + ": Invalid nights count (must be > 0) -> " + line);
-                        continue;
-                    }
-                    if (nightlyRate <= 0.0 || Double.isNaN(nightlyRate) || Double.isInfinite(nightlyRate)) {
-                        System.out.println("Row " + lineNumber + ": Invalid nightly rate (must be a valid positive number) -> " + line);
-                        continue;
-                    }
-
-                    // Якщо всі перевірки пройдено, оновлюємо статистику
-                    totalRecords++;
-                    totalNights += nights;
-                    totalRevenue += (nights * nightlyRate);
-                    if (nights > maxNights) {
-                        maxNights = nights;
-                    }
-
-                } catch (NumberFormatException e) {
-                    System.out.println("Row " + lineNumber + ": Number parsing error (check ints/doubles) -> " + line);
+                    Booking booking = Booking.fromCsv(line);
+                    bookings.add(booking);
+                } catch (IllegalArgumentException e) {
+                    System.out.println("Row " + lineNumber + ": " + e.getMessage() + " -> " + line);
                 }
             }
         } catch (IOException e) {
@@ -144,24 +75,44 @@ public class Main {
             return;
         }
 
+        int totalNights = 0;
+        double totalRevenue = 0.0;
+        int maxNights = 0;
+
+        for (Booking b : bookings) {
+            totalNights += b.getNights();
+            totalRevenue += b.getRevenue();
+            if (b.getNights() > maxNights) {
+                maxNights = b.getNights();
+            }
+        }
+
+        NightsRate summary = new NightsRate(bookings.size(), totalNights, totalRevenue, maxNights);
+        String summaryText = buildSummary(summary.totalRecords(), summary.totalNights(), summary.totalRevenue(), summary.maxNights());
+
         System.out.println("\n--- Final Results ---");
-        System.out.println("Total valid records: " + totalRecords);
-        System.out.println("Total nights stayed: " + totalNights);
-        System.out.println("Total revenue: $" + String.format(Locale.US, "%.2f", totalRevenue));
-        System.out.println("Maximum nights by a single guest: " + maxNights);
+        System.out.print(summaryText);
 
         try {
-            Files.createDirectories(Paths.get("out"));
-            try (BufferedWriter bw = new BufferedWriter(new FileWriter(outputFile, StandardCharsets.UTF_8))) {
-                bw.write("--- Hotel Data Report ---\n");
-                bw.write("Total valid records: " + totalRecords + "\n");
-                bw.write("Total nights stayed: " + totalNights + "\n");
-                bw.write("Total revenue: $" + String.format(Locale.US, "%.2f", totalRevenue) + "\n");
-                bw.write("Maximum nights by a single guest: " + maxNights + "\n");
+            Path outPath = Path.of(outputFile);
+            Path parent = outPath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
             }
+            String fileContent = "--- Hotel Data Report ---" + System.lineSeparator() + summaryText;
+            Files.writeString(outPath, fileContent, StandardCharsets.UTF_8);
             System.out.println("\nReport successfully saved to: " + outputFile);
         } catch (IOException e) {
             System.out.println("Error writing to output file: " + e.getMessage());
         }
+    }
+
+    private static String buildSummary(int totalRecords, int totalNights, double totalRevenue, int maxNights) {
+        return String.format(Locale.ROOT,
+                "Total valid records: %d%n"
+                        + "Total nights stayed: %d%n"
+                        + "Total revenue: $%.2f%n"
+                        + "Maximum nights by a single guest: %d%n",
+                totalRecords, totalNights, totalRevenue, maxNights);
     }
 }
