@@ -1,0 +1,7 @@
+room;guest;nights;nightlyRate;category
+101;John Doe;3;150.00;Standard
+301;Dexter Morgan;3;1000.00;Suite
+210;Sarah Connor;8;200.00;Business
+404;Tom Cruise;5;2000.00;Penthouse
+102;Clark Kent;-2;90.00;Economy
+500;Tony Stark;7;1500.00;

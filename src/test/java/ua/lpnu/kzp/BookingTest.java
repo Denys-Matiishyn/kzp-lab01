@@ -21,10 +21,10 @@ class BookingTest {
     @Test
     void constructorRejectsNegativeValues() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Booking(-101, "Jane Doe", 5, 100.0, "Deluxe"));
+                () -> Booking.create(-101, "Jane Doe", 5, 100.0, "Deluxe"));
 
         assertThrows(IllegalArgumentException.class,
-                () -> new Booking(102, "Jane Doe", -5, 100.0, "Deluxe"));
+                () -> Booking.create(102, "Jane Doe", -5, 100.0, "Deluxe"));
     }
 
     @Test
