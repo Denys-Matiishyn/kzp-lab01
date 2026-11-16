@@ -228,7 +228,7 @@ JSON saved to: out/bookings.json
 ```
 
   Вміст `out/bookings.csv` наведено в розділі 8. Якщо шлях експорту вказує на каталог (`--export data`), програма друкує `Export failed: Не вдалося записати CSV: data` і `Cause: java.nio.file.AccessDeniedException: data`, а звіт зберігається.
-* **CI (ubuntu / windows / macos):** буде додано після запуску перевірок Pull Request
+* **CI (ubuntu / windows / macos):** для Pull Request #41 workflow «Java CI with Maven» завершився успішно на `macos-latest` (47 с), `ubuntu-latest` (39 с) і `windows-latest` (54 с): https://github.com/Denys-Matiishyn/kzp-lab01/pull/41/checks
 * **JAR-артефакт:** публікується кожним запуском CI, по одному на ОС: https://github.com/Denys-Matiishyn/kzp-lab01/actions
 * **Версія і тег:** `pom.xml` та `--version` = `5.0.0`; Git-тег `v5.0.0`: https://github.com/Denys-Matiishyn/kzp-lab01/releases/tag/v5.0.0
 
@@ -236,7 +236,7 @@ JSON saved to: out/bookings.json
 
 ## 13. GitHub Issues і Pull Request
 
-Гілка: `lab-05-storage`. Pull Request: буде додано після створення, опис містить `Closes` для кожного з семи Issues.
+Гілка: `lab-05-storage`. Pull Request: https://github.com/Denys-Matiishyn/kzp-lab01/pull/41, опис містить приклад CSV, результат round-trip, таблицю помилок і `Closes` для кожного з семи Issues. Після зелених перевірок CI Pull Request злито в `main` (коміт `df7487f`), Issues закрито автоматично.
 
 | № GitHub Issue | Зміна | Перевірка |
 | :--- | :-------- | :-------- |
@@ -262,7 +262,7 @@ JSON saved to: out/bookings.json
 * **Запити:** «зробити лабораторну роботу № 5» разом із методичними вказівками та кодом проєкту після ЛР № 4; «які Issues створити й що в них написати»; допомога з перевіркою збірки, Pull Request і звітом.
 * **Прийняті пропозиції:** окремий клас `AnnotatedFields`, спільний для CSV і JSON; обхід ланцюжка успадкування; перетворення `Booking` на `BookingRecord` із заїздом як параметром; перевірка заголовка під час читання; номер запису в повідомленні про помилку; JSON як другий формат через `Exporter<T>`.
 * **Відхилені пропозиції / виправлені помилки:** кешування рефлексивних полів і вимірювання часу не робились; у парсері лапка всередині поля без лапок вважається помилкою формату, на відміну від демонстраційного прикладу.
-* **Власний внесок:** локальний запуск `clean verify` і JAR під JDK 21; перевірка створених CSV і JSON, помилки експорту з причиною та сумісності звіту командою `Compare-Object`; створення GitHub Issues #33, #34, #36–#40, гілки `lab-05-storage`, коміту та Pull Request; контроль CI на трьох ОС; перегляд коду й звіту.
+* **Власний внесок:** локальний запуск `clean verify` і JAR під JDK 21; перевірка створених CSV і JSON, помилки експорту з причиною та сумісності звіту командою `Compare-Object`; створення GitHub Issues #33, #34, #36–#40, гілки `lab-05-storage`, коміту та Pull Request #41; контроль CI на трьох ОС; перегляд коду й звіту.
 * **Підтвердження розуміння:** автор несе відповідальність за подані результати та може пояснити кожне анотоване поле й кожен виняток.
 
 ## 16. Відповіді на контрольні питання
