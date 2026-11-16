@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.IntSummaryStatistics;
 import java.util.List;
 import java.util.Locale;
@@ -18,7 +17,7 @@ import java.util.stream.Collectors;
  * Точка входу консольного застосунку обробки бронювань готелю.
  */
 public class Main {
-    private static final String VERSION = "4.0.0";
+    private static final String VERSION = "5.0.0";
     /** Спільна дата заїзду контрольного набору: у вхідному CSV дат немає. */
     static final LocalDate PERIOD_START = LocalDate.of(2026, 1, 1);
     /** Дата за замовчуванням для запиту «активне на дату» (третій день періоду). */
@@ -34,13 +33,15 @@ public class Main {
      * Читає вхідний CSV, обчислює показники та записує звіт.
      *
      * @param args параметри командного рядка: --help, --version, --input, --output,
-     *             --date, --find-room
+     *             --date, --find-room, --export, --export-json
      */
     public static void main(String[] args) {
         String inputFile = "data/input.csv";
         String outputFile = "out/report.txt";
         LocalDate date = DEFAULT_DATE;
         Integer findRoom = null;
+        String exportFile = null;
+        String exportJsonFile = null;
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -55,6 +56,8 @@ public class Main {
                     System.out.println("  --date YYYY-MM-DD Date for the 'active bookings' query (default: "
                             + DEFAULT_DATE + ", check-in " + PERIOD_START + ")");
                     System.out.println("  --find-room N     Search a booking by room number");
+                    System.out.println("  --export FILE     Export bookings to a UTF-8 CSV file and read it back");
+                    System.out.println("  --export-json FILE Export bookings to a UTF-8 JSON file");
                     return;
                 case "--version":
                     System.out.println(VERSION);
@@ -79,6 +82,16 @@ public class Main {
                         }
                     }
                     break;
+                case "--export":
+                    if (i + 1 < args.length) {
+                        exportFile = args[++i];
+                    }
+                    break;
+                case "--export-json":
+                    if (i + 1 < args.length) {
+                        exportJsonFile = args[++i];
+                    }
+                    break;
                 case "--find-room":
                     if (i + 1 < args.length) {
                         try {
@@ -94,7 +107,8 @@ public class Main {
             }
         }
 
-        List<Booking> bookings = new ArrayList<>();
+        // Коректні записи зберігаються в параметризованому сховищі, а не в прямому списку.
+        Repository<Booking> repository = new Repository<>();
         System.out.println("--- Hotel Data Processing ---");
 
         try (BufferedReader br = Files.newBufferedReader(Path.of(inputFile), StandardCharsets.UTF_8)) {
@@ -115,7 +129,7 @@ public class Main {
 
                 try {
                     Booking booking = Booking.fromCsv(line);
-                    bookings.add(booking);
+                    repository.add(booking);
                 } catch (IllegalArgumentException e) {
                     System.out.println("Row " + lineNumber + ": " + e.getMessage() + " -> " + line);
                 }
@@ -125,6 +139,7 @@ public class Main {
             return;
         }
 
+        List<Booking> bookings = repository.all();
         // Показники звіту обчислюються потоками; формат і значення звіту не змінилися.
         NightsRate summary = BookingQueries.summarize(bookings);
         String summaryText = buildSummary(summary.totalRecords(), summary.totalNights(), summary.totalRevenue(), summary.maxNights());
@@ -134,6 +149,9 @@ public class Main {
         // Додатковий блок лише в консолі: файл звіту залишається сумісним із попередньою роботою.
         System.out.print(buildPolymorphicDetails(bookings));
         System.out.print(buildStreamQueries(bookings, date, findRoom));
+        if (exportFile != null || exportJsonFile != null) {
+            System.out.print(exportBookings(bookings, exportFile, exportJsonFile));
+        }
 
         try {
             Path outPath = Path.of(outputFile);
@@ -211,6 +229,59 @@ public class Main {
             Optional<Booking> found = BookingQueries.findByRoom(bookings, findRoom);
             sb.append(String.format(Locale.ROOT, "Search room %d: %s%n", findRoom,
                     found.map(Booking::toString).orElse("not found")));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Експортує бронювання у CSV (і за потреби JSON), читає CSV назад і порівнює
+     * відновлені записи з початковими. Помилка не приховується: у текст потрапляють
+     * повідомлення власного винятку та його першопричина.
+     *
+     * @param bookings   коректні бронювання
+     * @param exportFile шлях до CSV-файла або {@code null}
+     * @param jsonFile   шлях до JSON-файла або {@code null}
+     * @return текст консольного блоку
+     */
+    static String exportBookings(List<Booking> bookings, String exportFile, String jsonFile) {
+        Repository<BookingRecord> records = new Repository<>();
+        bookings.stream()
+                .map(booking -> BookingRecord.fromBooking(booking, PERIOD_START))
+                .forEach(records::add);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format(Locale.ROOT, "%n--- CSV export ---%n"));
+        try {
+            if (exportFile != null) {
+                Path csvPath = Path.of(exportFile);
+                CsvExporter.write(csvPath, BookingRecord.class, records.all());
+                List<BookingRecord> restored = BookingCsvReader.read(csvPath);
+                sb.append(String.format(Locale.ROOT, "CSV saved to: %s%n", exportFile));
+                sb.append(String.format(Locale.ROOT, "Header: %s%n",
+                        CsvExporter.header(BookingRecord.class)));
+                sb.append(String.format(Locale.ROOT, "Exported records: %d%n", records.size()));
+                sb.append(String.format(Locale.ROOT, "Restored records: %d%n", restored.size()));
+                sb.append(String.format(Locale.ROOT, "Round-trip equal: %s%n",
+                        records.all().equals(restored)));
+            }
+            if (jsonFile != null) {
+                Exporter<BookingRecord> json = JsonExporter::toJson;
+                Path jsonPath = Path.of(jsonFile);
+                Path parent = jsonPath.toAbsolutePath().getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Files.writeString(jsonPath, json.export(BookingRecord.class, records.all()),
+                        StandardCharsets.UTF_8);
+                sb.append(String.format(Locale.ROOT, "JSON saved to: %s%n", jsonFile));
+            }
+        } catch (DataStorageException exception) {
+            sb.append(String.format(Locale.ROOT, "Export failed: %s%n", exception.getMessage()));
+            if (exception.getCause() != null) {
+                sb.append(String.format(Locale.ROOT, "Cause: %s%n", exception.getCause()));
+            }
+        } catch (IOException exception) {
+            sb.append(String.format(Locale.ROOT, "Export failed: cannot write JSON: %s%n", exception));
         }
         return sb.toString();
     }

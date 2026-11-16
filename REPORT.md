@@ -1,257 +1,293 @@
-# Звіт до лабораторної роботи № 4
+# Звіт до лабораторної роботи № 5
 
 **Дисципліна:** «Кросплатформні засоби програмування»  
-**Тема:** «Потокова обробка даних у Java-проєкті»  
+**Тема:** «Параметризоване сховище, винятки й CSV-експорт у Java-проєкті»  
 **Виконав:** Матіїшин Д. М., ст. гр. КІ-303  
 **Перевірив:** Олексів М. В.  
 **Репозиторій:** https://github.com/Denys-Matiishyn/kzp-lab01
 
 ## 1. Тема, номер і варіант
 
-* **Тема:** заміна циклових обчислень декларативними запитами Stream API.
+* **Тема:** параметризоване сховище `Repository<T>`, власний виняток із причиною, анотація `@CsvColumn`, рефлексивний CSV-експортер і читання CSV назад.
 * **Предметна область:** «Готель» (Hotel).
 * **Номер варіанта:** 14 (не змінювався з ЛР № 1).
-* **Запити варіанта:** фільтр — бронювання активне на дату; map — номери; групування — кількість за тарифом; статистика — тривалість проживання; top-5 — тривалість спаданням і номер; Optional — пошук за номером.
+* **Клас запису варіанта:** `BookingRecord`: `room`, `guest`, `checkIn`, `checkOut`, `rate`; CSV: номер, гість, заїзд, виїзд, тариф; ключ round-trip — `room + checkIn`.
 * **Операційна система:** Windows 11 (PowerShell); CI додатково перевіряє Ubuntu та macOS.
 
 ## 2. Мета роботи
 
-Замінити основні циклові обчислення в наявній моделі бронювань на запити Stream API, не змінюючи зовнішню поведінку програми. До моделі додано відбір, перетворення, групування, зведену статистику, складене впорядкування та пошук із результатом `Optional`. Файл звіту й чотири показники лишилися тими самими, що й у ЛР № 1–3.
+Завершити збереження даних у наскрізному Java-продукті: замінити пряме зберігання в списку на `Repository<T>`, додати власний виняток із ланцюгом причин, описати CSV-стовпці анотацією й реалізувати універсальний експортер, що читає метадані рефлексією. Дані записуються й читаються через `Path` і `Files` з явним UTF-8, а тест round-trip доводить, що відновлені об'єкти дорівнюють початковим.
 
 ## 3. Стан до і після цієї роботи
 
-| Обчислення | До (ЛР № 3) | Після (ЛР № 4) |
+| Аспект | До (ЛР № 4) | Після (ЛР № 5) |
 | :----- | :------- | :------- |
-| Сума ночей, виторг, максимум | один цикл `for` у `Main` із трьома накопичувачами | `BookingQueries.summarize`: `mapToInt().sum()`, `mapToDouble().sum()`, `mapToInt().max().orElse(0)` |
-| Кількість за рівнями | цикл із `Map.merge` | `countByTier`: `groupingBy(tierLabel, TreeMap, counting())` |
-| Загальна вартість | накопичення в циклі | `totalStayCost`: `mapToDouble(stayCost).sum()` |
-| Унікальні бронювання | `new HashSet<>(bookings).size()` | `uniqueCount`: `distinct().count()` |
-| Запити варіанта | відсутні | п'ять запитів, пошук, дворівневе групування |
-| Тести | 40 | 84 (40 попередніх + 44 нових) |
-| Версія | 3.0.0 | 4.0.0 |
+| Зберігання | `ArrayList<Booking>` у `Main`, лише в пам'яті | `Repository<Booking>`; експорт у CSV-файл і читання назад |
+| Запис для файла | відсутній | `BookingRecord` з анотованими полями |
+| Експорт | лише текстовий звіт із чотирма показниками | `CsvExporter` (універсальний), `JsonExporter` (зірочка) |
+| Імпорт | розбір вхідного файла через `split(";")` | `CsvParser` (машина станів) + `BookingCsvReader` |
+| Помилки зберігання | повідомлення в консолі | `DataStorageException` із `getCause()` |
+| Тести | 84 | 153 (84 попередніх + 69 нових) |
+| Версія | 4.0.0 | 5.0.0 |
 
-Цикл читання файла в `Main` залишено: він виконує введення-виведення й повідомляє номер хибного рядка, тобто має побічні ефекти, для яких потік не дає переваг.
+Додано класи: `Repository`, `CsvColumn`, `AnnotatedFields`, `CsvExporter`, `CsvParser`, `BookingRecord`, `BookingCsvReader`, `DataStorageException`, `Exporter`, `JsonExporter`; тести `RepositoryTest`, `CsvExporterTest`, `CsvParserTest`, `BookingRecordTest`, `BookingCsvRoundTripTest`, `JsonExporterTest`, `MainExportTest`; дані `data/input-lab05.csv`, `data/bookings-empty.csv`, `data/bookings-broken.csv`. Змінено: `Main.java`, `MainPolymorphismTest.java` (очікувана версія), `pom.xml`, `README.md`, `REPORT.md`. Попередній звіт збережено в `docs/REPORT-lab04.md`.
 
-Додано файли: `BookingQueries.java`, `BookingQueriesTest.java`, `StreamVsLoopTest.java`, `LoopReference.java` (еталонні цикли для тестів), `MainStreamTest.java`, `data/input-lab04.csv`, `docs/REPORT-lab03.md`. Змінено: `Main.java`, `MainPolymorphismTest.java` (очікувана версія 4.0.0), `pom.xml`, `README.md`, `REPORT.md`.
-
-## 4. Контракт даних
-
-* **Поліморфний тип:** `Booking` (запечатаний абстрактний клас) із підтипами `StandardBooking` і `PremiumBooking`. Усі запити приймають `Collection<Booking>` і не перевіряють підтип.
-* **Поля:** `room` (int), `guest` (String), `nights` (int), `nightlyRate` (double), `category` (String), `kind` (`RoomKind`).
-* **enum:** `RoomKind` — `ECONOMY`, `STANDARD`, `DELUXE`, `BUSINESS`, `SUITE`, `PRESIDENTIAL`, `PENTHOUSE`, `OTHER`.
-* **Правила валідності** (перевіряються під час створення об'єкта, тому до запитів потрапляють лише коректні записи): гість і категорія не порожні, `room > 0`, `nights > 0`, тариф додатний і скінченний.
-* **Дати.** У варіанті ЛР № 4 згадано заїзд і виїзд, але формат CSV `room;guest;nights;nightlyRate;category` за вимогою не змінювався й дат не містить. Тому дата заїзду передається до запиту параметром, а виїзд обчислюється як заїзд плюс `nights`. У програмі заїзд для всіх записів набору дорівнює `2026-01-01`.
-* **Тариф** у групуванні — тарифна категорія номера `RoomKind`.
-
-## 5. П'ять запитів
-
-Усі запити зібрано в класі `BookingQueries`; джерело кожного — `bookings.stream()`.
-
-| № | Метод | Проміжні операції | Кінцева операція / collector | Тип результату |
-| :-- | :------ | :------ | :------ | :----- |
-| 1 | `activeOn(bookings, checkIn, date)` | `filter` | `toList()` | `List<Booking>` |
-| 2 | `roomNumbers(bookings)` | `map`, `distinct`, `sorted` | `toList()` | `List<Integer>` |
-| 3 | `countByTariff(bookings)` | — | `collect(groupingBy(getKind, EnumMap, counting()))` | `Map<RoomKind, Long>` |
-| 4 | `stayStatistics(bookings)` | — | `collect(summarizingInt(getNights))` | `IntSummaryStatistics` |
-| 5 | `longestStays(bookings, n)` | `sorted`, `limit` | `toList()` | `List<Booking>` |
+## 4. Repository<T>
 
 ```java
-public static List<Booking> activeOn(Collection<Booking> bookings,
-                                     LocalDate checkIn, LocalDate date) {
-    return bookings.stream()
-            .filter(booking -> isActiveOn(booking, checkIn, date))
-            .toList();
-}
+public final class Repository<T> {
+    private final List<T> items = new ArrayList<>();
 
-public static List<Integer> roomNumbers(Collection<Booking> bookings) {
-    return bookings.stream()
-            .map(Booking::getRoom)
-            .distinct()
-            .sorted()
-            .toList();
+    public void add(T item) {
+        items.add(Objects.requireNonNull(item, "item"));
+    }
+
+    public List<T> all() {
+        return List.copyOf(items);
+    }
+
+    public List<T> find(Predicate<? super T> condition) {
+        return items.stream().filter(condition).toList();
+    }
 }
 ```
 
-**Межа фільтра.** Бронювання активне, якщо `checkIn <= date < checkIn + nights`. Для проживання на 3 ночі із заїздом 1 січня: 1 і 3 січня активне (остання ніч), 4 січня (день виїзду) вже ні.
+* **Параметр типу** `T` задається під час створення: `Repository<Booking>` приймає лише бронювання, `Repository<BookingRecord>` — лише записи. Перевірку виконує компілятор, приведень типів немає, raw types не використовуються.
+* **`add`** відхиляє `null`.
+* **`all`** повертає незмінний знімок (`List.copyOf`): зовнішній код не може змінити внутрішній список, а пізніші додавання не змінюють уже отриманий знімок.
+* **`find`** приймає `Predicate<? super T>`, тому підходить умова і для `T`, і для його супертипу (у тесті — `Predicate<Object>` для `Repository<Booking>`).
+* **`size`** повертає кількість записів.
 
-**Фактичні результати** на `data/input-lab04.csv` (7 записів, дата 2026-01-03):
+У `Main` коректні бронювання додаються до `Repository<Booking>`, а запити Stream API працюють зі знімком `repository.all()`.
 
-| Запит | Результат |
-| :---- | :-------- |
-| 1. Активні на дату | 5: John Doe, Dexter Morgan, Diana Prince, Tom Cruise, Sarah Connor |
-| 2. Номери | 101, 102, 205, 210, 301, 404 (дубль 101 згорнуто) |
-| 3. За тарифом | ECONOMY=1, STANDARD=2, DELUXE=1, BUSINESS=1, SUITE=1, PENTHOUSE=1 |
-| 4. Статистика ночей | count=7, min=1, max=10, sum=35, avg=5.00 |
-| 5. Top-5 | 210 (10), 205 (7), 301 (7), 404 (5), 101 John Doe (3) |
-| Пошук 404 | Tom Cruise |
-| Пошук 999 | `Optional.empty()` → «not found» |
+## 5. Модель даних
 
-## 6. Групування та статистика
+`BookingRecord` — незмінний `final`-клас, плоский запис для файла.
 
-* **Ключ групування** має явний тип `RoomKind`. Карта — `EnumMap`, тому ключі йдуть у порядку оголошення enum і вивід відтворюваний. Тарифи без бронювань до карти не входять.
-* **Агрегат** — `Collectors.counting()`, значення типу `Long`. Сума значень дорівнює розміру колекції (перевірено тестом).
-* **Статистика** — `Collectors.summarizingInt(Booking::getNights)`: кількість, мінімум, максимум, сума, середнє.
-* **Порожній вхід.** Групування повертає порожню карту. Статистика має `getCount() = 0`, `getSum() = 0`, `getAverage() = 0.0`, а `getMin()` і `getMax()` дорівнюють `Integer.MAX_VALUE` та `Integer.MIN_VALUE`. Тому `Main` спочатку перевіряє кількість і для порожнього набору друкує `Stay nights: no data`.
-* **Формат чисел.** Форматування виконується лише в `Main` через `String.format(Locale.ROOT, ...)`; середнє друкується з двома знаками (`%.2f`). Усередині колекторів текст не формується.
-* **Завдання із зірочкою.** `countByTierAndTariff` — дворівневе групування `groupingBy(Booking::tierLabel, TreeMap::new, groupingBy(Booking::getKind, EnumMap, counting()))`. Для контрольного набору: `Premium → {SUITE=1, PENTHOUSE=1}`, `Standard → {ECONOMY=1, STANDARD=2, DELUXE=1, BUSINESS=1}`.
+| Поле | Тип | Стовпець CSV | Інваріант |
+| :--- | :--- | :--- | :------ |
+| `room` | `int` | номер | більше нуля |
+| `guest` | `String` | гість | не порожнє |
+| `checkIn` | `LocalDate` | заїзд | задано |
+| `checkOut` | `LocalDate` | виїзд | задано й пізніше за заїзд |
+| `rate` | `double` | тариф | додатне скінченне число |
 
-## 7. Компаратор
+* **Інваріанти** перевіряє конструктор і кидає `IllegalArgumentException`.
+* **`equals`/`hashCode`** порівнюють усі п'ять полів (`rate` через `Double.compare`); поля `final`, тому запис безпечний у `HashSet`.
+* **Ключ запису:** `room + checkIn`, метод `hasKey(room, checkIn)`.
+* **Зв'язок із моделлю попередніх робіт:** `BookingRecord.fromBooking(booking, checkIn)` будує запис із будь-якого підтипу `Booking`. Вхідний файл програми (`room;guest;nights;nightlyRate;category`) дат не містить, тому заїзд задається параметром (у програмі `2026-01-01`), а виїзд дорівнює заїзду плюс кількість ночей; тариф береться з `nightlyRate`.
+
+## 6. @CsvColumn
 
 ```java
-public static Comparator<Booking> longestStayFirst() {
-    return Comparator.comparingInt(Booking::getNights)
-            .reversed()
-            .thenComparingInt(Booking::getRoom);
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface CsvColumn {
+    String value();
 }
 ```
 
-* **Основний критерій:** кількість ночей, напрямок — спадання (`reversed()`).
-* **Другий критерій:** номер кімнати за зростанням (`thenComparingInt`).
-* **Порядок викликів:** `reversed()` застосовано до першого ключа до `thenComparingInt`. Якби `reversed()` стояв останнім, обернувся б увесь складений компаратор, і номери також ішли б за спаданням.
-* **limit:** `sorted(...).limit(n)`. Спочатку сортування, потім усікання; у зворотному порядку отримали б перші `n` записів файла, а не найдовші проживання. `n = 0` дає порожній список, завеликий `n` — усю відсортовану колекцію, від'ємний `n` — `IllegalArgumentException`.
-* **Перевірка другого критерію:** у наборі два бронювання по 7 ночей (кімнати 301 і 205); у результаті 205 стоїть перед 301.
+* **`@Retention(RUNTIME)`** залишає анотацію доступною під час виконання; без цього `getAnnotation` нічого б не знайшов.
+* **`@Target(FIELD)`** дозволяє ставити анотацію лише над полем.
+* **Назви стовпців:** `@CsvColumn("номер") room`, `@CsvColumn("гість") guest`, `@CsvColumn("заїзд") checkIn`, `@CsvColumn("виїзд") checkOut`, `@CsvColumn("тариф") rate`.
+* **Порядок стовпців** визначається сортуванням Java-імен полів, а не анотацією: `checkIn`, `checkOut`, `guest`, `rate`, `room`. Тому заголовок: `заїзд,виїзд,гість,тариф,номер`.
 
-## 8. Optional
+Анотація нічого не виконує сама: вона лише описує контракт, який читає експортер.
 
-* **Ключ пошуку:** номер кімнати; метод `findByRoom(bookings, room)` повертає `Optional<Booking>`.
-* **Знайдено:** `Optional` із першим у порядку колекції бронюванням. Для дубльованого ключа 101 повертається John Doe (перший запис).
-* **Не знайдено:** `Optional.empty()`, метод ніколи не повертає `null`. `Main` обробляє обидва випадки одним виразом: `found.map(Booking::toString).orElse("not found")`.
+## 7. Рефлексивний експортер
+
+`CsvExporter.write(Path, Class<T>, List<? extends T>)` працює з будь-яким класом, що має поля з `@CsvColumn`. У класах `CsvExporter`, `AnnotatedFields`, `JsonExporter`, `CsvParser` і `Repository` немає жодної назви предметної області; у тестах експортер записує сторонній клас `City`.
 
 ```java
-public static Optional<Booking> findByRoom(Collection<Booking> bookings, int room) {
-    return bookings.stream()
-            .filter(booking -> booking.getRoom() == room)
-            .findFirst();
+for (Class<?> current = type; current != null && current != Object.class;
+        current = current.getSuperclass()) {
+    Arrays.stream(current.getDeclaredFields())
+            .filter(field -> field.isAnnotationPresent(CsvColumn.class))
+            .forEach(fields::add);
+}
+fields.sort(Comparator.comparing(Field::getName));
+for (Field field : fields) {
+    if (!field.trySetAccessible()) {
+        throw new DataStorageException("Немає доступу до поля ...");
+    }
 }
 ```
 
-## 9. Еквівалентність
+* **Пошук полів:** `getDeclaredFields()` повертає і приватні поля; залишаються лише анотовані. Ланцюжок успадкування проходиться до `Object`, тому успадковані анотовані поля теж експортуються (перевірено тестом із підкласом).
+* **Доступ:** результат `trySetAccessible()` перевіряється; помилка доступу стає `DataStorageException`.
+* **Заголовок:** назви з `@CsvColumn` у порядку імен полів. Клас передається окремим параметром, тому заголовок будується і для порожнього списку.
+* **Значення:** читаються через `Field.get` і перетворюються на текст; `null` дає порожнє поле.
+* **Екранування:** поле з комою, лапкою, `\r` або `\n` береться в подвійні лапки, лапка всередині подвоюється.
+* **Запис:** `Files.writeString(path, csv, StandardCharsets.UTF_8, CREATE, TRUNCATE_EXISTING, WRITE)`; батьківські каталоги створюються; `IOException` стає причиною `DataStorageException`.
+* **Незмінність:** експортер не змінює об'єкти та список записів.
 
-Еталонні циклові реалізації збережено в тестовому класі `LoopReference`. Клас `StreamVsLoopTest` порівнює їх із потоковими на `data/input.csv` і `data/input-lab04.csv`.
+**Завдання із зірочкою.** Інтерфейс `Exporter<T>` із методом `export(Class<T>, List<? extends T>)` є спільним контрактом форматів: `Exporter<BookingRecord> csv = CsvExporter::toCsv;` і `Exporter<BookingRecord> json = JsonExporter::toJson;`. `JsonExporter` використовує ті самі анотовані поля й записує масив об'єктів. Кешування полів і вимірювання часу не виконувались.
 
-| Цикл | Stream API | Результат порівняння |
-| :------ | :------ | :------ |
-| `for` + `if` + `result.add` | `filter(...).toList()` | збіг для кожної дати від −1 до +11 дня |
-| `for` + `TreeSet.add` | `map(getRoom).distinct().sorted()` | збіг списків номерів |
-| `for` + `Map.merge(kind, 1L, Long::sum)` | `groupingBy(getKind, EnumMap, counting())` | збіг карт |
-| `for` із ручними min/max/sum/count | `summarizingInt(getNights)` | збіг чотирьох значень |
-| сортування вставками + цикл до `limit` | `sorted(компаратор).limit(n)` | збіг для кожного `n` від 0 до розміру + 2 |
-| `for` + `return` / `null` | `filter(...).findFirst()` | збіг для наявних і відсутніх номерів |
-| `for` із трьома накопичувачами (звіт) | `mapToInt().sum()`, `mapToDouble().sum()`, `max()` | збіг показників; файл звіту ідентичний еталону ЛР № 1 |
+## 8. Формат CSV
 
-Результати збігаються, бо кожен конвеєр описує ту саму умову, те саме перетворення й той самий порядок, що й цикл; змінився лише спосіб запису. Файл звіту на `data/input.csv` порівняно з `baseline/report-lab01.txt` (тест `reportFileIsIdenticalToBaselineOfPreviousLab`).
+Файл, створений командою `--export out/bookings.csv` для `data/input-lab05.csv`:
 
-## 10. Тестування
+```text
+заїзд,виїзд,гість,тариф,номер
+2026-01-01,2026-01-04,John Doe,150.0,101
+2026-01-01,2026-01-08,Dexter Morgan,1000.0,301
+2026-01-01,2026-01-08,"O'Neil, ""Shaq"" Jr.",220.5,205
+2026-01-01,2026-01-06,Марія Коваленко,2000.0,404
+2026-01-01,2026-01-11,Sarah Connor,200.0,210
+2026-01-01,2026-01-02,Clark Kent,90.0,102
+```
 
-Усього **84 тести JUnit 5**: 40 попередніх і 44 нових.
+* **Заголовок:** `заїзд,виїзд,гість,тариф,номер`.
+* **Екранований рядок:** гість `O'Neil, "Shaq" Jr.` містить кому й лапки, тому записаний як `"O'Neil, ""Shaq"" Jr."`.
+* **Кодування:** UTF-8 без BOM під час запису й читання; кирилична літера займає два байти (перевірено тестом за байтами файла).
+* **Роздільники рядків:** записи розділяються системним роздільником (`\r\n` у Windows, `\n` в Ubuntu та macOS). Парсер приймає `\n`, `\r\n` і `\r`, тому файл, створений на одній ОС, читається на іншій; це перевірено тестами з обома варіантами та запуском CI на трьох ОС.
+* **Дати** у форматі ISO `РРРР-ММ-ДД`, дробові числа з крапкою.
+
+## 9. Імпорт і round-trip
+
+Алгоритм відновлення (`BookingCsvReader.read`):
+
+1. `Files.readString(path, StandardCharsets.UTF_8)` читає весь текст, бо поле в лапках може містити перенесення рядка.
+2. `CsvParser.parseDocument` машиною станів розбирає текст на записи: усередині лапок кома й перенесення рядка є даними, поза лапками — роздільниками.
+3. Перший запис порівнюється з очікуваним заголовком.
+4. Кожен наступний запис передається в `BookingRecord.fromFields`, який перевіряє кількість полів, розбирає дати й числа та викликає конструктор з інваріантами.
+5. Початковий і відновлений списки порівнюються через `equals`.
+
+```java
+CsvExporter.write(file, BookingRecord.class, original);
+List<BookingRecord> restored = BookingCsvReader.read(file);
+assertEquals(original, restored);
+```
+
+**Результат.** Тест `roundTripThroughFileRestoresEqualObjects` записує шість записів (кома й лапки, кирилиця, перенесення рядка в імені, дробовий тариф, повтор номера): файл має 8 фізичних рядків (заголовок і шість записів, один із яких займає два рядки), парсер повертає 7 записів, відновлено 6 об'єктів, списки рівні. **Ключ `room + checkIn`:** номер 101 трапляється двічі, а `find(record -> record.hasKey(101, 2026-01-10))` повертає один запис — Anna Bell. Програма на `data/input-lab05.csv` друкує `Exported records: 6`, `Restored records: 6`, `Round-trip equal: true`.
+
+## 10. Помилки
+
+| Рівень | Ситуація | Повідомлення | `getCause()` | Тест |
+| :--- | :------ | :------ | :----- | :----- |
+| Модель | номер 0, порожній гість, виїзд не пізніше заїзду | `Invalid room number (must be > 0)` тощо | — (`IllegalArgumentException`) | `constructorRejectsInvalidState`, `checkOutMustBeAfterCheckIn` |
+| Формат | не п'ять полів | `Очікується 5 полів, отримано 4` | немає | `wrongFieldCountIsFormatError` |
+| Формат | незакриті лапки, текст після лапок | `Незакриті CSV-лапки в записі 2` | немає | `unclosedQuoteIsFormatError` |
+| Формат | інший заголовок | `Невідомий заголовок CSV: ...` | немає | `unknownHeaderIsRejected` |
+| Значення | хибне число | `Некоректне число в полі «тариф»: abc` | `NumberFormatException` | `invalidNumbersKeepNumberFormatCause` |
+| Значення | хибна дата | `Некоректна дата в полі «заїзд»: 01.01.2026` | `DateTimeParseException` | `invalidDateKeepsParseCause` |
+| Значення | порушено інваріант у файлі | `Некоректні дані бронювання: ...` | `IllegalArgumentException` | `modelViolationKeepsIllegalArgumentCause` |
+| Файл | файла немає | `Не вдалося прочитати CSV: <шлях>` | `NoSuchFileException` | `missingFileGivesStorageExceptionWithIoCause` |
+| Файл | шлях є каталогом | `Не вдалося записати CSV: <шлях>` | `IOException` | `writeToDirectoryPathFailsWithIoCause` |
+| Рефлексія | немає полів із `@CsvColumn` | `Клас NoColumns не має полів із @CsvColumn` | немає | `classWithoutAnnotatedFieldsIsRejected` |
+
+`BookingCsvReader` додає до повідомлення номер запису й зберігає ланцюг причин: для `data/bookings-broken.csv` виходить `CSV-запис 2: Некоректне число в полі «тариф»: abc`, причина — `DataStorageException` поля, а її причина — `NumberFormatException`. Порожніх `catch` у коді немає: `Main` друкує `Export failed: <повідомлення>` і `Cause: <першопричина>`, а звіт при цьому все одно зберігається.
+
+Порожній CSV (0 байтів) і файл лише із заголовком є допустимими й дають порожній список.
+
+## 11. Тестування
+
+Усього **153 тести JUnit 5**: 84 попередніх і 69 нових.
 
 | Клас | Тестів | Що перевіряє |
 | :---- | :-- | :---------- |
-| `MainTest`, `BookingTest`, `RoomKindTest`, `BookingHierarchyTest`, `MainPolymorphismTest` | 40 | тести ЛР № 1–3 |
-| `BookingQueriesTest` | 31 | п'ять запитів, пошук, порожній вхід, незмінність джерела, зірочка |
-| `StreamVsLoopTest` | 6 | збіг потокових запитів з цикловими |
-| `MainStreamTest` | 7 | консольний блок запитів, параметри `--date` і `--find-room`, порожній файл |
+| тести ЛР № 1–4 (8 класів) | 84 | попередня поведінка |
+| `RepositoryTest` | 7 | додавання, порядок, `null`, незмінний знімок, предикат супертипу |
+| `CsvExporterTest` | 14 | анотація, заголовок, сторонній клас, успадкування, екранування, UTF-8, перезапис, помилки |
+| `CsvParserTest` | 13 | лапки, коми, перенесення рядка, три види роздільників, помилки формату |
+| `BookingRecordTest` | 11 | інваріанти, `equals`/`hashCode`, ключ, `fromFields`, причини помилок |
+| `BookingCsvRoundTripTest` | 15 | round-trip, ключ, порожні файли, хибні записи, файлові помилки |
+| `JsonExporterTest` | 4 | другий формат і спільний інтерфейс |
+| `MainExportTest` | 5 | параметри `--export`, `--export-json`, помилка експорту, сумісність звіту |
 
-* **Позитивні:** очікувані результати кожного запиту на контрольному наборі.
-* **Граничні:** остання ніч і день виїзду для фільтра; `limit` 0, 5 і 100; рівна тривалість 7 ночей (другий критерій); один запис у статистиці.
-* **Дублікати:** дубль номера 101 у `roomNumbers` і `findByRoom`; логічно рівні бронювання в `uniqueCount`.
-* **Порожні дані:** порожня колекція для кожного запиту, порожній вхідний файл.
-* **Негативні:** від'ємний `limit`, `null`-аргументи, відсутній номер у пошуку, хибні значення `--date` і `--find-room`.
-* **Незмінність джерела:** `queriesDoNotChangeSourceCollection` перевіряє, що після всіх запитів колекція містить ті самі об'єкти в тому самому порядку.
+* **Позитивні:** round-trip шести записів, заголовок, експорт стороннього класу.
+* **Граничні:** порожній список, файл лише із заголовком, файл 0 байтів, поле з перенесенням рядка, останній запис без перенесення рядка, виїзд наступного дня.
+* **Негативні:** хибна кількість полів, хибне число, хибна дата, порушений інваріант, незакриті лапки, невідомий заголовок, відсутній файл, шлях-каталог, клас без анотацій; у кожному перевіряється `getCause()`.
+* **Фізичні рядки й об'єкти:** 8 фізичних рядків → 7 CSV-записів (із заголовком) → 6 відновлених об'єктів.
 
-**Зміна попереднього тесту.** У `MainPolymorphismTest.versionOptionPrintsCurrentVersion` очікувану версію змінено з `3.0.0` на `4.0.0`, бо версію продукту оновлено за правилами курсу. Інші попередні тести не змінювались.
+**Зміна попереднього тесту.** У `MainPolymorphismTest.versionOptionPrintsCurrentVersion` очікувану версію змінено з `4.0.0` на `5.0.0`. Інші попередні тести не змінювались.
 
-## 11. Інфраструктура
+## 12. Інфраструктура
 
-Maven Wrapper, Java 21, JUnit 5.12.2, SpotBugs 4.9.7.0, `maven-shade-plugin` і GitHub Actions успадковано без змін, окрім версії проєкту (`4.0.0`).
+Maven Wrapper, Java 21, JUnit 5.12.2, SpotBugs 4.9.7.0, `maven-shade-plugin` і GitHub Actions успадковано без змін, окрім версії проєкту (`5.0.0`).
 
 ```text
 .\mvnw.cmd test
 .\mvnw.cmd verify
 .\mvnw.cmd package
-java -jar target\lab01-4.0.0.jar --input data/input-lab04.csv --output out/report.txt --find-room 404
+java "-Dstdout.encoding=UTF-8" -jar target\lab01-5.0.0.jar --input data/input-lab05.csv --output out/report.txt --export out/bookings.csv --export-json out/bookings.json
 ```
 
-* **Результат локального `.\mvnw.cmd clean verify` (Windows 11, Microsoft OpenJDK 21.0.12.1, 16.11.2026):** `BUILD SUCCESS`; 84 тести, 0 падінь, 0 помилок, 0 пропущених (`BookingHierarchyTest` 22, `BookingQueriesTest` 31, `BookingTest` 4, `MainPolymorphismTest` 5, `MainStreamTest` 7, `MainTest` 5, `RoomKindTest` 4, `StreamVsLoopTest` 6); SpotBugs 4.9.7.0 — `BugInstance size is 0`, `Error size is 0`; зібрано `target\lab01-4.0.0.jar`.
+* **Результат локального `.\mvnw.cmd clean verify` (Windows 11, Microsoft OpenJDK 21.0.12.1, 16.11.2026):** `BUILD SUCCESS`; 153 тести, 0 падінь, 0 помилок, 0 пропущених; SpotBugs 4.9.7.0 — `BugInstance size is 0`, `Error size is 0`; зібрано `target\lab01-5.0.0.jar`.
 * **Примітка щодо версії Java:** `verify` запускається під JDK 21, бо SpotBugs 4.9.7.0 не читає класи JDK 27.
-* **Запуск JAR** на `data/input-lab04.csv` з `--find-room 404`:
+* **Запуск JAR і створений CSV** (`data/input-lab05.csv`):
 
 ```text
---- Stream queries ---
-Active on 2026-01-03 (check-in 2026-01-01): 5
-Room numbers: 101, 102, 205, 210, 301, 404
-Bookings by tariff: ECONOMY=1, STANDARD=2, DELUXE=1, BUSINESS=1, SUITE=1, PENTHOUSE=1
-Stay nights: count=7, min=1, max=10, avg=5.00
-Top 5 longest stays:
-  room 210, Sarah Connor, 10 nights
-  room 205, Diana Prince, 7 nights
-  room 301, Dexter Morgan, 7 nights
-  room 404, Tom Cruise, 5 nights
-  room 101, John Doe, 3 nights
-Search room 404: Tom Cruise (Penthouse), кімната 404: 5 ночей, 2000.00 грн
+--- CSV export ---
+CSV saved to: out/bookings.csv
+Header: заїзд,виїзд,гість,тариф,номер
+Exported records: 6
+Restored records: 6
+Round-trip equal: true
+JSON saved to: out/bookings.json
 ```
 
-  З `--find-room 999` останній рядок: `Search room 999: not found`; з `--date 2026-01-08` перший рядок: `Active on 2026-01-08 (check-in 2026-01-01): 1`.
-* **CI (GitHub Actions):** для Pull Request #32 workflow «Java CI with Maven» завершився успішно на `macos-latest` (39 с), `ubuntu-latest` (29 с) і `windows-latest` (52 с): https://github.com/Denys-Matiishyn/kzp-lab01/pull/32/checks
+  Вміст `out/bookings.csv` наведено в розділі 8. Якщо шлях експорту вказує на каталог (`--export data`), програма друкує `Export failed: Не вдалося записати CSV: data` і `Cause: java.nio.file.AccessDeniedException: data`, а звіт зберігається.
+* **CI (ubuntu / windows / macos):** буде додано після запуску перевірок Pull Request
 * **JAR-артефакт:** публікується кожним запуском CI, по одному на ОС: https://github.com/Denys-Matiishyn/kzp-lab01/actions
-* **Версія і тег:** `pom.xml` та `--version` = `4.0.0`; Git-тег `v4.0.0`: https://github.com/Denys-Matiishyn/kzp-lab01/releases/tag/v4.0.0
+* **Версія і тег:** `pom.xml` та `--version` = `5.0.0`; Git-тег `v5.0.0`: https://github.com/Denys-Matiishyn/kzp-lab01/releases/tag/v5.0.0
 
-## 12. GitHub Issues і Pull Request
+Каталоги `target/` і `out/` (зі створеним CSV) до репозиторію не потрапляють завдяки `.gitignore`.
 
-Гілка: `lab-04-streams`. Pull Request: https://github.com/Denys-Matiishyn/kzp-lab01/pull/32, опис містить `Closes #24` … `Closes #31`. Після зелених перевірок CI Pull Request злито в `main` (коміт `8ab1f36`), Issues закрито автоматично.
+## 13. GitHub Issues і Pull Request
+
+Гілка: `lab-05-storage`. Pull Request: буде додано після створення, опис містить `Closes` для кожного з семи Issues.
 
 | № GitHub Issue | Зміна | Перевірка |
 | :--- | :-------- | :-------- |
-| #24 | запит 1: відбір активних на дату (`filter`) | `BookingQueriesTest`, межа фільтра |
-| #25 | запит 2: номери кімнат (`map`, `distinct`, `sorted`) | `BookingQueriesTest`, дублікат |
-| #26 | запит 3: кількість за тарифом (`groupingBy`) і дворівневе групування | `BookingQueriesTest` |
-| #27 | запит 4: статистика тривалості (`summarizingInt`) | `BookingQueriesTest`, порожній вхід |
-| #28 | запит 5: top-N зі складеним компаратором | `BookingQueriesTest`, другий критерій, `limit` |
-| #29 | пошук за номером через `Optional` | `BookingQueriesTest`, відсутній номер |
-| #30 | заміна циклів у `Main` потоками, тести еквівалентності | `StreamVsLoopTest`, порівняння з еталоном |
-| #31 | README, REPORT, Javadoc, версія 4.0.0, перевірка CI | `mvnw verify`, зелений CI |
+| #33 | `Repository<T>`: `add`, `all`, `find` | `RepositoryTest` |
+| #34 | анотація `@CsvColumn` і клас `BookingRecord` | `BookingRecordTest`, `CsvExporterTest` (анотація) |
+| #40 | універсальний рефлексивний `CsvExporter` з екрануванням | `CsvExporterTest` |
+| #36 | `CsvParser` і `BookingCsvReader`, round-trip | `CsvParserTest`, `BookingCsvRoundTripTest` |
+| #37 | `DataStorageException` із причиною, обробка помилок | тести з `getCause()` |
+| #38 | інтеграція в `Main`: сховище, `--export`, `--export-json`, `JsonExporter` | `MainExportTest`, `JsonExporterTest` |
+| #39 | README, REPORT, Javadoc, версія 5.0.0, перевірка CI | `mvnw verify`, зелений CI |
 
-## 13. Порівняння реалізацій
+## 14. Порівняння стану
 
-**Що стало читабельнішим.** У потоковому записі умова (`filter`), перетворення (`map`) і накопичення (collector) стоять окремими кроками й читаються згори вниз. Складений компаратор називає обидва критерії та напрямок в одному виразі, тоді як у циклі це ручне порівняння у двох `if`. Пошук із `Optional` змушує викликаючий код обробити відсутній результат.
+* **Звіт не втрачено.** Файл звіту на `data/input.csv` збігається з `baseline/report-lab01.txt` (тести `reportFileIsIdenticalToBaselineOfPreviousLab` і `reportFileStaysCompatibleWhenExporting`): 12 записів, 52 ночі, виторг $42681.00, максимум 10 ночей.
+* **Попередні можливості працюють.** Усі 84 тести ЛР № 1–4 проходять; блоки `Polymorphic details` і `Stream queries` виводяться як раніше.
+* **Дані не втрачено під час експорту.** Для того самого `data/input.csv` програма друкує `Exported records: 12`, `Restored records: 12`, `Round-trip equal: true`.
+* **Що змінилось зовні:** з'явились необов'язкові параметри `--export` і `--export-json` та консольний блок `--- CSV export ---`; без цих параметрів вивід програми той самий, що й у ЛР № 4.
 
-**Що не варто оцінювати кількістю рядків.** Підсумок звіту в циклі рахувався за один прохід, а потоками — трьома окремими проходами: рядків не поменшало, зате кожен показник описано незалежно. Top-N у циклі довший, але це різниця між ручним сортуванням і бібліотечним, а не між циклом і потоком. Цикл читання файла залишено, бо в ньому є побічні ефекти (повідомлення про хибні рядки), які в потоці виглядали б гірше.
-
-**Обмеження.** Потік складніше покроково налагоджувати; поведінку статистики для порожнього набору (`min`/`max`) треба знати й перевіряти явно. Паралельні потоки не використовувались: на наборі з десятка записів вони не дали б виграшу.
-
-## 14. Академічна доброчесність
+## 15. Академічна доброчесність
 
 * **Інструмент ШІ:** Claude (Anthropic).
-* **Ролі:** розробник (клас `BookingQueries`, зміни в `Main`), валідатор (тести, крайові випадки, порівняння з циклами), документатор (README, REPORT, Javadoc).
-* **Запити:** «зробити лабораторну роботу № 4» разом із методичними вказівками та кодом проєкту після ЛР № 3; «чи обов'язково стільки тестів»; «які Issues створити»; допомога з перевіркою збірки, Pull Request і звітом.
-* **Прийняті пропозиції:** окремий клас запитів без форматування; заїзд як параметр запиту, бо CSV не містить дат; `RoomKind` як ключ групування за тарифом; `EnumMap` і `TreeMap` для відтворюваного порядку; збереження еталонних циклів у тестах; дворівневе групування як завдання із зірочкою.
-* **Відхилені пропозиції / виправлені помилки:** перший варіант запитів приймав `Collection<? extends Booking>` і потребував приведення типу в конвеєрі; сигнатури спрощено до `Collection<Booking>`. Прогноз номерів Issues (#27–#34) виявився хибним, у звіті використано фактичні #24–#31.
-* **Власний внесок:** локальний запуск `clean verify` і JAR під JDK 21, перевірка пошуку наявного й відсутнього номера, параметра `--date` та сумісності звіту командою `Compare-Object`; створення GitHub Issues #24–#31, гілки `lab-04-streams`, коміту та Pull Request; контроль CI на трьох ОС і злиття; перегляд коду й звіту.
-* **Підтвердження розуміння:** автор несе відповідальність за подані результати та може пояснити кожну операцію конвеєрів.
+* **Ролі:** розробник (сховище, анотація, експортер, парсер, запис варіанта), валідатор (екранування, round-trip, крайові випадки), документатор (README, REPORT, Javadoc).
+* **Запити:** «зробити лабораторну роботу № 5» разом із методичними вказівками та кодом проєкту після ЛР № 4; «які Issues створити й що в них написати»; допомога з перевіркою збірки, Pull Request і звітом.
+* **Прийняті пропозиції:** окремий клас `AnnotatedFields`, спільний для CSV і JSON; обхід ланцюжка успадкування; перетворення `Booking` на `BookingRecord` із заїздом як параметром; перевірка заголовка під час читання; номер запису в повідомленні про помилку; JSON як другий формат через `Exporter<T>`.
+* **Відхилені пропозиції / виправлені помилки:** кешування рефлексивних полів і вимірювання часу не робились; у парсері лапка всередині поля без лапок вважається помилкою формату, на відміну від демонстраційного прикладу.
+* **Власний внесок:** локальний запуск `clean verify` і JAR під JDK 21; перевірка створених CSV і JSON, помилки експорту з причиною та сумісності звіту командою `Compare-Object`; створення GitHub Issues #33, #34, #36–#40, гілки `lab-05-storage`, коміту та Pull Request; контроль CI на трьох ОС; перегляд коду й звіту.
+* **Підтвердження розуміння:** автор несе відповідальність за подані результати та може пояснити кожне анотоване поле й кожен виняток.
 
-## 15. Відповіді на контрольні питання
+## 16. Відповіді на контрольні питання
 
-1. **Чим потік відрізняється від колекції?** Колекція зберігає елементи, а потік лише описує обчислення над джерелом і сам нічого не зберігає. Потік одноразовий: після кінцевої операції його не можна використати знову.
-2. **Які частини має типовий конвеєр Stream API?** Джерело (наприклад, `bookings.stream()`), проміжні операції (`filter`, `map`, `sorted`) і кінцева операція (`toList`, `collect`, `findFirst`).
-3. **Чому проміжні операції називають лінивими?** Вони нічого не обчислюють, доки не викликано кінцеву операцію; до цього лише будується опис конвеєра.
-4. **Що робить filter і який тип має його предикат?** Залишає елементи, для яких предикат повертає `true`. Предикат має тип `Predicate<T>`, тобто функція від елемента до `boolean`.
-5. **Чим map відрізняється від mapToDouble?** `map` повертає потік об'єктів `Stream<R>`, а `mapToDouble` — числовий `DoubleStream` без пакування, що має `sum`, `average`, `max` і `summaryStatistics`.
-6. **Для чого застосовується distinct і від чого залежить його результат?** Прибирає повтори. Результат залежить від `equals` і `hashCode` елементів: у `roomNumbers` порівнюються числа, в `uniqueCount` — бронювання за підтипом і полями.
-7. **Чому порядок sorted().limit(N) відрізняється від limit(N).sorted()?** Перший варіант сортує все й бере N найкращих. Другий бере перші N елементів джерела й сортує тільки їх, тому може пропустити справжні найбільші значення.
-8. **Яку роль виконує кінцева операція?** Запускає конвеєр і повертає результат (список, карту, число, `Optional`) або виконує дію.
-9. **Коли застосовується Collectors.joining?** Коли потік рядків треба з'єднати в один рядок із роздільником. У `Main` так формується рядок `Room numbers: 101, 102, ...`.
-10. **Як groupingBy будує карту груп?** Для кожного елемента обчислює ключ функцією-класифікатором і додає елемент до групи цього ключа; за замовчуванням значення групи — список.
-11. **Як отримати суму в кожній групі через downstream collector?** Передати другий колектор: `groupingBy(ключ, summingInt(...))` або `counting()` для кількості, як у `countByTariff`.
-12. **Які показники містить DoubleSummaryStatistics?** Кількість, суму, мінімум, максимум і середнє. `IntSummaryStatistics` у роботі містить те саме для цілих.
-13. **Які значення має статистика для порожнього потоку?** Кількість 0, сума 0, середнє 0.0; мінімум і максимум мають службові граничні значення (`Integer.MAX_VALUE` і `Integer.MIN_VALUE`), тому спочатку перевіряють кількість.
-14. **Як утворюється складений компаратор?** `Comparator.comparing(перший ключ)` і далі `thenComparing(другий ключ)`; другий критерій застосовується лише за рівності першого.
-15. **Чому reversed() потрібно застосовувати до окремого ключа до thenComparing?** `reversed()` обертає весь компаратор, зібраний до цього місця. Якщо викликати його після `thenComparing`, обернеться і другий критерій.
-16. **Яку проблему розв'язує Optional у методі пошуку?** Явно показує, що результату може не бути, і не дає повернути `null`, який легко забути перевірити.
-17. **Чим відрізняються orElse, orElseThrow і ifPresent?** `orElse` повертає запасне значення, `orElseThrow` кидає виняток за відсутності значення, `ifPresent` виконує дію лише тоді, коли значення є.
-18. **Чому накопичення результату через зовнішній змінний список у forEach небажане?** Це побічний ефект: запит перестає бути чистим, залежить від зовнішнього стану й ламається в паралельному потоці. Правильно збирати результат через `toList` або `collect`.
-19. **Які властивості мають бути перевірені під час рефакторингу циклу на потік?** Однакові результати на контрольних даних, порожній вхід, межі умов, дублікати, порядок елементів і незмінність вхідної колекції.
-20. **За яких умов паралельний потік може бути виправданим?** Великий обсяг даних, дорогі операції на елемент, асоціативні операції без спільного змінного стану і виміряний виграш у часі.
+1. **Яку проблему розв'язує параметр типу в Repository<T>?** Одне сховище працює з різними типами, а компілятор перевіряє, що в `Repository<Booking>` потрапляють лише бронювання, і приведення типів не потрібні.
+2. **Чим параметризований клас відрізняється від raw type?** Raw type (`Repository` без параметра) вимикає перевірку типів: у сховище можна покласти будь-що, а помилка проявиться лише під час виконання.
+3. **Навіщо Predicate<? super T> у методі пошуку?** Щоб передати умову, написану для `T` або для його супертипу, наприклад `Predicate<Object>` для сховища бронювань.
+4. **Чому all() має повертати незмінний знімок?** Інакше зовнішній код міг би змінити внутрішній список сховища в обхід `add`.
+5. **Що таке checked exception і коли він доречний у цій роботі?** Виняток, який компілятор вимагає обробити або оголосити в `throws`. Він доречний для помилок файла й формату: викликаючий код мусить вирішити, що робити.
+6. **Для чого зберігати cause власного винятку?** Щоб не загубити початкову технічну помилку (`IOException`, `NumberFormatException`): повідомлення пояснює операцію, а причина показує, що саме зламалося.
+7. **Чим Path і Files кращі за складання шляху рядком?** `Path` сам підставляє правильний роздільник для ОС, а `Files` дає готові операції з явним кодуванням і режимами відкриття.
+8. **Чому кодування потрібно задавати і під час запису, і під час читання?** Кодування за замовчуванням залежить від ОС; якщо записати в одному, а прочитати в іншому, кирилиця зіпсується.
+9. **Що роблять @Retention(RUNTIME) і @Target(FIELD)?** Перша залишає анотацію доступною для рефлексії під час виконання, друга дозволяє ставити її лише над полями.
+10. **Чому анотація не виконує експорт сама?** Анотація — це лише метадані; дію виконує код, який їх читає (експортер).
+11. **Чим getDeclaredFields() відрізняється від отримання публічних полів?** `getDeclaredFields()` повертає всі поля самого класу, зокрема приватні, а `getFields()` — лише публічні, разом з успадкованими.
+12. **Навіщо перевіряти trySetAccessible()?** Метод повертає `false`, якщо доступ до приватного поля заборонено (наприклад, модулем); без перевірки помилка проявилася б пізніше й незрозуміло.
+13. **Чому порядок полів для CSV потрібно зробити детермінованим?** JVM не гарантує порядок із `getDeclaredFields()`; без сортування стовпці могли б помінятися місцями, і файл не прочитався б назад.
+14. **Чому split(",") не підходить для загального CSV?** Він ділить і по комі всередині лапок, тож `"Smith, John"` стане двома полями.
+15. **Як екрануються кома, лапка й перенесення рядка в CSV?** Поле береться в подвійні лапки, а лапка всередині подвоюється.
+16. **Чому порожній список потребує окремого параметра Class<T>?** З порожнього списку неможливо дізнатися клас записів, а він потрібен, щоб побудувати заголовок.
+17. **Чим універсальний експортер відрізняється від предметного fromCsv?** Експортер перетворює будь-які значення на текст і не знає класу. Зворотне перетворення тексту на `int`, `LocalDate` чи `double` залежить від конкретних полів, тому його виконує предметний клас.
+18. **Які рівні помилок розрізняє програма?** Модель (інваріанти в конструкторі), формат (кількість полів, лапки, заголовок), значення (число, дата), файл (читання й запис) і рефлексія (анотовані поля, доступ).
+19. **Що доводить тест round-trip?** Що після запису у файл і читання назад отримано об'єкти, рівні початковим, у тому самому порядку, тобто експорт нічого не втрачає й не спотворює.
+20. **Чому виняток не можна поглинати порожнім catch?** Програма продовжить роботу з неправильним результатом, а причину помилки вже неможливо буде встановити.
 
-## 16. Висновки
+## 17. Висновки
 
-У роботі циклові обчислення над колекцією бронювань замінено запитами Stream API, зібраними в класі `BookingQueries`: відбір активних на дату, номери кімнат, кількість за тарифом, статистика тривалості, top-N зі складеним компаратором і пошук через `Optional`, а також дворівневе групування. Запити не змінюють вхідну колекцію, не форматують текст і не розгалужуються за підтипом. Файл звіту збігається з еталоном ЛР № 1, усі 40 попередніх тестів проходять, загальна кількість тестів зросла до 84, а збіг потокових і циклових результатів підтверджено окремими тестами. Окремі незалежні запити стають основою для наступної роботи, де до моделі можна додавати нові запити без переписування наявних.
+У роботі пряме зберігання даних у списку замінено параметризованим сховищем `Repository<T>`, додано запис варіанта `BookingRecord` з анотованими полями, універсальний рефлексивний `CsvExporter`, парсер CSV на машині станів і власний виняток `DataStorageException` зі збереженням першопричини. Дані записуються й читаються через `Path` і `Files` з явним UTF-8, а round-trip повертає об'єкти, рівні початковим, зокрема для значень із комами, лапками, перенесеннями рядка та кирилицею. Попередній звіт і всі 84 тести збережено, загальна кількість тестів зросла до 153. Створений CSV-файл із заголовком `заїзд,виїзд,гість,тариф,номер` має стабільний порядок стовпців і однозначні правила екранування, тому може бути вхідними даними для наступного програмного блоку.
