@@ -172,26 +172,44 @@ Maven Wrapper, Java 21, JUnit 5.12.2, SpotBugs 4.9.7.0, `maven-shade-plugin` і 
 java -jar target\lab01-4.0.0.jar --input data/input-lab04.csv --output out/report.txt --find-room 404
 ```
 
-* **Результат локального `.\mvnw.cmd clean verify` (JDK 21):** ⟨вставити: кількість тестів, SpotBugs, BUILD SUCCESS⟩
-* **Запуск JAR:** ⟨вставити вивід⟩
-* **CI (ubuntu / windows / macos):** ⟨посилання на зелений запуск⟩
-* **JAR-артефакт:** ⟨посилання⟩
-* **Версія і тег:** `pom.xml` та `--version` = `4.0.0`; Git-тег `v4.0.0` ⟨створити після злиття PR⟩
+* **Результат локального `.\mvnw.cmd clean verify` (Windows 11, Microsoft OpenJDK 21.0.12.1, 16.11.2026):** `BUILD SUCCESS`; 84 тести, 0 падінь, 0 помилок, 0 пропущених (`BookingHierarchyTest` 22, `BookingQueriesTest` 31, `BookingTest` 4, `MainPolymorphismTest` 5, `MainStreamTest` 7, `MainTest` 5, `RoomKindTest` 4, `StreamVsLoopTest` 6); SpotBugs 4.9.7.0 — `BugInstance size is 0`, `Error size is 0`; зібрано `target\lab01-4.0.0.jar`.
+* **Примітка щодо версії Java:** `verify` запускається під JDK 21, бо SpotBugs 4.9.7.0 не читає класи JDK 27.
+* **Запуск JAR** на `data/input-lab04.csv` з `--find-room 404`:
+
+```text
+--- Stream queries ---
+Active on 2026-01-03 (check-in 2026-01-01): 5
+Room numbers: 101, 102, 205, 210, 301, 404
+Bookings by tariff: ECONOMY=1, STANDARD=2, DELUXE=1, BUSINESS=1, SUITE=1, PENTHOUSE=1
+Stay nights: count=7, min=1, max=10, avg=5.00
+Top 5 longest stays:
+  room 210, Sarah Connor, 10 nights
+  room 205, Diana Prince, 7 nights
+  room 301, Dexter Morgan, 7 nights
+  room 404, Tom Cruise, 5 nights
+  room 101, John Doe, 3 nights
+Search room 404: Tom Cruise (Penthouse), кімната 404: 5 ночей, 2000.00 грн
+```
+
+  З `--find-room 999` останній рядок: `Search room 999: not found`; з `--date 2026-01-08` перший рядок: `Active on 2026-01-08 (check-in 2026-01-01): 1`.
+* **CI (GitHub Actions):** для Pull Request #32 workflow «Java CI with Maven» завершився успішно на `macos-latest` (39 с), `ubuntu-latest` (29 с) і `windows-latest` (52 с): https://github.com/Denys-Matiishyn/kzp-lab01/pull/32/checks
+* **JAR-артефакт:** публікується кожним запуском CI, по одному на ОС: https://github.com/Denys-Matiishyn/kzp-lab01/actions
+* **Версія і тег:** `pom.xml` та `--version` = `4.0.0`; Git-тег `v4.0.0`: https://github.com/Denys-Matiishyn/kzp-lab01/releases/tag/v4.0.0
 
 ## 12. GitHub Issues і Pull Request
 
-Гілка: `lab-04-streams`. Pull Request: ⟨посилання⟩, опис містить `Closes #N`.
+Гілка: `lab-04-streams`. Pull Request: https://github.com/Denys-Matiishyn/kzp-lab01/pull/32, опис містить `Closes #24` … `Closes #31`. Після зелених перевірок CI Pull Request злито в `main` (коміт `8ab1f36`), Issues закрито автоматично.
 
 | № GitHub Issue | Зміна | Перевірка |
 | :--- | :-------- | :-------- |
-| #⟨ ⟩ | запит 1: відбір активних на дату (`filter`) | `BookingQueriesTest`, межа фільтра |
-| #⟨ ⟩ | запит 2: номери кімнат (`map`, `distinct`, `sorted`) | `BookingQueriesTest`, дублікат |
-| #⟨ ⟩ | запит 3: кількість за тарифом (`groupingBy`) і дворівневе групування | `BookingQueriesTest` |
-| #⟨ ⟩ | запит 4: статистика тривалості (`summarizingInt`) | `BookingQueriesTest`, порожній вхід |
-| #⟨ ⟩ | запит 5: top-N зі складеним компаратором | `BookingQueriesTest`, другий критерій, `limit` |
-| #⟨ ⟩ | пошук за номером через `Optional` | `BookingQueriesTest`, відсутній номер |
-| #⟨ ⟩ | заміна циклів у `Main` потоками, тести еквівалентності | `StreamVsLoopTest`, порівняння з еталоном |
-| #⟨ ⟩ | README, REPORT, Javadoc, версія 4.0.0, перевірка CI | `mvnw verify`, зелений CI |
+| #24 | запит 1: відбір активних на дату (`filter`) | `BookingQueriesTest`, межа фільтра |
+| #25 | запит 2: номери кімнат (`map`, `distinct`, `sorted`) | `BookingQueriesTest`, дублікат |
+| #26 | запит 3: кількість за тарифом (`groupingBy`) і дворівневе групування | `BookingQueriesTest` |
+| #27 | запит 4: статистика тривалості (`summarizingInt`) | `BookingQueriesTest`, порожній вхід |
+| #28 | запит 5: top-N зі складеним компаратором | `BookingQueriesTest`, другий критерій, `limit` |
+| #29 | пошук за номером через `Optional` | `BookingQueriesTest`, відсутній номер |
+| #30 | заміна циклів у `Main` потоками, тести еквівалентності | `StreamVsLoopTest`, порівняння з еталоном |
+| #31 | README, REPORT, Javadoc, версія 4.0.0, перевірка CI | `mvnw verify`, зелений CI |
 
 ## 13. Порівняння реалізацій
 
@@ -205,11 +223,11 @@ java -jar target\lab01-4.0.0.jar --input data/input-lab04.csv --output out/repor
 
 * **Інструмент ШІ:** Claude (Anthropic).
 * **Ролі:** розробник (клас `BookingQueries`, зміни в `Main`), валідатор (тести, крайові випадки, порівняння з циклами), документатор (README, REPORT, Javadoc).
-* **Запити:** «зробити лабораторну роботу № 4» разом із методичними вказівками та кодом проєкту після ЛР № 3. ⟨додайте власні запити⟩
+* **Запити:** «зробити лабораторну роботу № 4» разом із методичними вказівками та кодом проєкту після ЛР № 3; «чи обов'язково стільки тестів»; «які Issues створити»; допомога з перевіркою збірки, Pull Request і звітом.
 * **Прийняті пропозиції:** окремий клас запитів без форматування; заїзд як параметр запиту, бо CSV не містить дат; `RoomKind` як ключ групування за тарифом; `EnumMap` і `TreeMap` для відтворюваного порядку; збереження еталонних циклів у тестах; дворівневе групування як завдання із зірочкою.
-* **Відхилені пропозиції / виправлені помилки:** перший варіант запитів приймав `Collection<? extends Booking>` і потребував приведення типу в конвеєрі; сигнатури спрощено до `Collection<Booking>`. ⟨додайте власні⟩
-* **Власний внесок:** ⟨опишіть: запуск збірки, Issues, гілка, PR, CI, перегляд коду⟩
-* **Підтвердження розуміння:** ⟨після самостійного розбору коду⟩ автор несе відповідальність за подані результати та може пояснити кожну операцію конвеєрів.
+* **Відхилені пропозиції / виправлені помилки:** перший варіант запитів приймав `Collection<? extends Booking>` і потребував приведення типу в конвеєрі; сигнатури спрощено до `Collection<Booking>`. Прогноз номерів Issues (#27–#34) виявився хибним, у звіті використано фактичні #24–#31.
+* **Власний внесок:** локальний запуск `clean verify` і JAR під JDK 21, перевірка пошуку наявного й відсутнього номера, параметра `--date` та сумісності звіту командою `Compare-Object`; створення GitHub Issues #24–#31, гілки `lab-04-streams`, коміту та Pull Request; контроль CI на трьох ОС і злиття; перегляд коду й звіту.
+* **Підтвердження розуміння:** автор несе відповідальність за подані результати та може пояснити кожну операцію конвеєрів.
 
 ## 15. Відповіді на контрольні питання
 
