@@ -1,33 +1,57 @@
-# Lab 4: Cross-platform Programming (Hotel Data Processing)
+# Lab 5: Cross-platform Programming (Hotel Data Processing)
 
 ## Призначення
-Консольний Java-застосунок для лабораторної роботи № 4 (варіант 14, «Готель»). Програма читає записи про проживання гостей із CSV-файла, перевіряє їх, відкидає хибні рядки з поясненням причини, обчислює показники та виводить звіт у консоль і текстовий файл. У ЛР № 4 циклові обчислення замінено запитами Stream API; зовнішній звіт не змінився.
+Консольний Java-застосунок для лабораторної роботи № 5 (варіант 14, «Готель»). Програма читає записи про проживання гостей, перевіряє їх, обчислює показники й виконує запити Stream API. У ЛР № 5 дані зберігаються в параметризованому сховищі `Repository<T>`, експортуються у CSV універсальним рефлексивним експортером і читаються назад із перевіркою round-trip.
 
-## Що змінилось у ЛР № 4
-| Було (ЛР № 3) | Стало (ЛР № 4) |
+## Що додано в ЛР № 5
+| Компонент | Призначення |
 | :-- | :-- |
-| цикл `for` у `Main` рахує суму ночей, виторг і максимум | `BookingQueries.summarize` (`mapToInt().sum()`, `mapToDouble().sum()`, `max()`) |
-| цикл із `Map.merge` рахує бронювання за рівнями | `BookingQueries.countByTier` (`groupingBy` + `counting`) |
-| `new HashSet<>(bookings).size()` | `BookingQueries.uniqueCount` (`distinct().count()`) |
-| запитів до колекції немає | п'ять запитів варіанта, пошук через `Optional`, дворівневе групування |
+| `Repository<T>` | типобезпечне сховище: `add`, `all` (незмінний знімок), `find(Predicate<? super T>)`, `size` |
+| `@CsvColumn` | анотація поля з назвою стовпця (`RUNTIME`, `FIELD`) |
+| `CsvExporter` | універсальний експортер: знаходить поля з `@CsvColumn` рефлексією, екранує значення, пише UTF-8 |
+| `CsvParser` | розбір CSV машиною станів (лапки, коми та перенесення рядка всередині полів) |
+| `BookingRecord` | плоский запис варіанта: `room`, `guest`, `checkIn`, `checkOut`, `rate` |
+| `BookingCsvReader` | читання CSV і відновлення `BookingRecord` |
+| `DataStorageException` | власний checked-виняток із першопричиною (`getCause()`) |
+| `Exporter<T>`, `JsonExporter` | завдання із зірочкою: другий формат через спільний інтерфейс |
 
-Усі запити зібрано в класі `BookingQueries`. Кожен метод створює власний потік, не змінює вхідну колекцію, не форматує текст і не перевіряє підтип `Booking`. Форматування виконує `Main`.
+`Main` тепер складає коректні бронювання в `Repository<Booking>` замість прямого списку. Експортер не містить назв класів предметної області: у тестах він експортує довільний клас `City`.
 
-## Запити Stream API (варіант 14)
-| № | Метод | Конвеєр | Результат |
+## Формат CSV
+* Кодування UTF-8 під час запису й читання (`StandardCharsets.UTF_8`), без BOM.
+* Перший рядок — заголовок із назв `@CsvColumn`. Порядок стовпців визначається сортуванням Java-імен полів (`checkIn`, `checkOut`, `guest`, `rate`, `room`):
+
+```text
+заїзд,виїзд,гість,тариф,номер
+2026-01-01,2026-01-04,John Doe,150.0,101
+2026-01-01,2026-01-08,"O'Neil, ""Shaq"" Jr.",220.5,205
+```
+
+* Поле з комою, лапкою або перенесенням рядка береться в подвійні лапки; лапка всередині подвоюється.
+* Дати у форматі ISO `РРРР-ММ-ДД`, дробові числа з крапкою.
+* Записи розділяються системним роздільником рядків; під час читання приймаються `\n`, `\r\n` і `\r`.
+* Порожній файл і файл лише із заголовком дають порожній список записів.
+
+| Поле | Тип | Стовпець | Інваріант |
 | :-- | :-- | :-- | :-- |
-| 1 | `activeOn(bookings, checkIn, date)` | `stream → filter → toList` | `List<Booking>` |
-| 2 | `roomNumbers(bookings)` | `stream → map → distinct → sorted → toList` | `List<Integer>` |
-| 3 | `countByTariff(bookings)` | `stream → collect(groupingBy(getKind, EnumMap, counting))` | `Map<RoomKind, Long>` |
-| 4 | `stayStatistics(bookings)` | `stream → collect(summarizingInt(getNights))` | `IntSummaryStatistics` |
-| 5 | `longestStays(bookings, n)` | `stream → sorted(компаратор) → limit(n) → toList` | `List<Booking>` |
-| пошук | `findByRoom(bookings, room)` | `stream → filter → findFirst` | `Optional<Booking>` |
-| зірочка | `countByTierAndTariff(bookings)` | `groupingBy(tierLabel, TreeMap, groupingBy(getKind, EnumMap, counting))` | `Map<String, Map<RoomKind, Long>>` |
+| `room` | `int` | номер | більше нуля |
+| `guest` | `String` | гість | не порожнє |
+| `checkIn` | `LocalDate` | заїзд | задано |
+| `checkOut` | `LocalDate` | виїзд | пізніше за заїзд |
+| `rate` | `double` | тариф | додатне, скінченне |
 
-* **Активне на дату.** Вхідний CSV не містить дат заїзду й виїзду (формат не змінювався з ЛР № 1), тому дата заїзду передається параметром, а виїзд дорівнює заїзду плюс кількість ночей. Бронювання активне, якщо `checkIn <= date < checkIn + nights`: остання ніч ще активна, день виїзду вже ні. У програмі заїзд для всіх записів набору дорівнює `2026-01-01`.
-* **Тариф** у групуванні — тарифна категорія номера `RoomKind`.
-* **Компаратор top-N:** `comparingInt(getNights).reversed().thenComparingInt(getRoom)` — тривалість за спаданням, за рівної тривалості номер кімнати за зростанням. `reversed()` стоїть перед `thenComparingInt`, тому другий критерій не обертається.
-* **Порожній вхід:** списки й карти порожні, `Optional.empty()`, статистика має `count = 0` і `average = 0.0` (у консолі друкується `Stay nights: no data`).
+Ключ запису: `room + checkIn`. Вхідний файл програми дат не містить, тому під час експорту заїзд дорівнює `2026-01-01`, а виїзд — заїзд плюс кількість ночей.
+
+## Помилки
+| Рівень | Приклад | Реакція |
+| :-- | :-- | :-- |
+| Модель | номер 0, виїзд не пізніше заїзду | `IllegalArgumentException` у конструкторі |
+| Формат | не п'ять полів, незакриті лапки, інший заголовок | `DataStorageException` |
+| Значення | хибне число або дата | `DataStorageException` із причиною `NumberFormatException` / `DateTimeParseException` |
+| Файл | файла немає, шлях є каталогом | `DataStorageException` із `IOException` як причиною |
+| Рефлексія | немає полів із `@CsvColumn`, поле недоступне | `DataStorageException` |
+
+Помилки не поглинаються: `Main` друкує повідомлення й першопричину (`Export failed: ...`, `Cause: ...`).
 
 ## Формат входу
 Файл у кодуванні UTF-8, один запис у рядку, поля розділено крапкою з комою (формат не змінився):
@@ -45,15 +69,17 @@
 Перший рядок із заголовком (містить слово `guest`) пропускається. Хибні рядки виводяться з номером і причиною та не впливають на результат.
 
 ## Показники та сумісність звіту
-Файл звіту й чотири показники **не змінились** і збігаються з еталоном ЛР № 1 (`baseline/report-lab01.txt`): кількість коректних записів, сумарна кількість ночей, загальний виторг, найдовше проживання. Блоки `--- Polymorphic details ---` (ЛР № 3) і `--- Stream queries ---` (ЛР № 4) виводяться лише в консоль.
+Файл звіту й чотири показники **не змінились** і збігаються з еталоном ЛР № 1 (`baseline/report-lab01.txt`). Блоки `Polymorphic details`, `Stream queries` і `CSV export` виводяться лише в консоль.
 
 ## Параметри командного рядка
 * `--help` — вивести довідку;
-* `--version` — показати версію програми (4.0.0);
-* `--input FILE` — шлях до вхідного CSV-файла (за замовчуванням `data/input.csv`);
-* `--output FILE` — шлях до файла звіту (за замовчуванням `out/report.txt`); відсутні каталоги створюються автоматично;
-* `--date YYYY-MM-DD` — дата для запиту «активне на дату» (за замовчуванням `2026-01-03`);
-* `--find-room N` — пошук бронювання за номером кімнати.
+* `--version` — показати версію програми (5.0.0);
+* `--input FILE` — шлях до вхідного файла (за замовчуванням `data/input.csv`);
+* `--output FILE` — шлях до файла звіту (за замовчуванням `out/report.txt`);
+* `--date YYYY-MM-DD` — дата для запиту «активне на дату»;
+* `--find-room N` — пошук бронювання за номером кімнати;
+* `--export FILE` — експортувати бронювання у CSV, прочитати файл назад і порівняти записи;
+* `--export-json FILE` — експортувати бронювання в JSON.
 
 ## Збірка і запуск
 Windows (PowerShell), JDK 21:
@@ -62,45 +88,30 @@ Windows (PowerShell), JDK 21:
 .\mvnw.cmd test
 .\mvnw.cmd verify
 .\mvnw.cmd package
-java -jar target\lab01-4.0.0.jar --input data/input-lab04.csv --output out/report.txt --find-room 404
+java "-Dstdout.encoding=UTF-8" -jar target\lab01-5.0.0.jar --input data/input-lab05.csv --output out/report.txt --export out/bookings.csv --export-json out/bookings.json
 ```
 
-macOS та Ubuntu: `./mvnw test`, `./mvnw verify`, `./mvnw package`, `java -jar target/lab01-4.0.0.jar ...`.
+macOS та Ubuntu: `./mvnw test`, `./mvnw verify`, `./mvnw package`, `java -jar target/lab01-5.0.0.jar ...`.
 
-Команда `verify` виконує компіляцію, 84 модульні тести JUnit 5 (40 із попередніх робіт + 44 нові), статичний аналіз SpotBugs і пакування виконуваного JAR. SpotBugs 4.9.7.0 не працює під JDK 27, тому `verify` запускається під JDK 21.
+Команда `verify` виконує компіляцію, 153 модульні тести JUnit 5 (84 із попередніх робіт + 69 нових), статичний аналіз SpotBugs і пакування виконуваного JAR. SpotBugs 4.9.7.0 не працює під JDK 27, тому `verify` запускається під JDK 21.
+
+## Приклад (`data/input-lab05.csv`)
+```text
+--- CSV export ---
+CSV saved to: out/bookings.csv
+Header: заїзд,виїзд,гість,тариф,номер
+Exported records: 6
+Restored records: 6
+Round-trip equal: true
+JSON saved to: out/bookings.json
+```
 
 ## Файли даних
-* `data/input.csv` — контрольний вхід ЛР № 1–3 (12 коректних записів);
-* `data/input-lab03.csv` — приклад ЛР № 3 із двома хибними рядками;
-* `data/input-lab04.csv` — набір ЛР № 4 (7 записів): дубль номера 101, рівна тривалість 7 ночей для перевірки другого критерію, запис на межі фільтра, два записи поза top-5.
-
-## Приклад (`data/input-lab04.csv`, `--find-room 404`)
-```text
---- Final Results ---
-Total valid records: 7
-Total nights stayed: 35
-Total revenue: $21380.00
-Maximum nights by a single guest: 10
-
---- Polymorphic details ---
-Premium bookings: 2
-Standard bookings: 5
-Unique bookings: 7
-Total stay cost (tier rules): $22903.00
-
---- Stream queries ---
-Active on 2026-01-03 (check-in 2026-01-01): 5
-Room numbers: 101, 102, 205, 210, 301, 404
-Bookings by tariff: ECONOMY=1, STANDARD=2, DELUXE=1, BUSINESS=1, SUITE=1, PENTHOUSE=1
-Stay nights: count=7, min=1, max=10, avg=5.00
-Top 5 longest stays:
-  room 210, Sarah Connor, 10 nights
-  room 205, Diana Prince, 7 nights
-  room 301, Dexter Morgan, 7 nights
-  room 404, Tom Cruise, 5 nights
-  room 101, John Doe, 3 nights
-Search room 404: Tom Cruise (Penthouse), кімната 404: 5 ночей, 2000.00 грн
-```
+* `data/input.csv` — контрольний вхід ЛР № 1–4 (12 записів);
+* `data/input-lab03.csv`, `data/input-lab04.csv` — набори попередніх робіт;
+* `data/input-lab05.csv` — набір ЛР № 5 (6 записів, один гість із комою та лапками, один кирилицею);
+* `data/bookings-empty.csv` — CSV лише із заголовком;
+* `data/bookings-broken.csv` — CSV із хибним числом у другому записі (для тесту помилки).
 
 ## CI
 GitHub Actions (`.github/workflows/ci.yml`) запускає `./mvnw clean verify` на ubuntu-latest, windows-latest і macos-latest та публікує JAR як артефакт.

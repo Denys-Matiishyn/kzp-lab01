@@ -84,6 +84,6 @@ class MainPolymorphismTest {
     @Test
     void versionOptionPrintsCurrentVersion() {
         Main.main(new String[] {"--version"});
-        assertEquals("4.0.0", normalize(outContent.toString()).trim());
+        assertEquals("5.0.0", normalize(outContent.toString()).trim());
     }
 }
